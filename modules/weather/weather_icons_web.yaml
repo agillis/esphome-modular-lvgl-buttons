@@ -1,0 +1,100 @@
+---
+# Weather icons
+# https://raw.githubusercontent.com/weather-underground-icons.git
+
+image:
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/nt_clear.svg
+    id: clear_night_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/cloudy.svg
+    id: cloudy_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/tstorms.svg
+    id: exceptional_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/fog.svg
+    id: fog_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/sleet.svg
+    id: hail_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/chancetstorms.svg
+    id: lightning_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/tstorms.svg
+    id: lightning_rainy_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/partlycloudy.svg
+    id: partlycloudy_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/rain.svg
+    id: pouring_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/chancerain.svg
+    id: rainy_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/snow.svg
+    id: snowy_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/chancesleet.svg
+    id: snowy_rainy_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/sunny.svg
+    id: sunny_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/agillis/esphome-modular-lvgl-buttons/main/modules/assets/weather_icons/windy.svg
+    id: windy_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/black/svg/unknown.svg
+    id: unknown_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/agillis/esphome-modular-lvgl-buttons/main/modules/assets/weather_icons/circle-slash.svg
+    id: unavailable_${size}
+    resize: ${size}x${size}
+    type: RGB565
+    transparency: alpha_channel
