@@ -1,0 +1,26 @@
+---
+# Graphic assets
+image:
+  - file: https://esphome.io/_static/logo-text-on-light.svg
+    id: boot_logo_90px
+    resize: 450x90 # aspect ratio 5
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://esphome.io/_static/logo-text-on-light.svg
+    id: boot_logo_20px
+    resize: 100x20  # aspect ratio 5
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/agillis/esphome-modular-lvgl-buttons/main/modules/assets/produced_icon.svg
+    id: produced_icon_80px
+    resize: 80x80
+    type: RGB565
+    transparency: alpha_channel
+
+  - file: https://raw.githubusercontent.com/agillis/esphome-modular-lvgl-buttons/main/modules/assets/grid_ok.svg
+    id: grid_ok_30px
+    resize: 30x30
+    type: RGB565
+    transparency: alpha_channel
