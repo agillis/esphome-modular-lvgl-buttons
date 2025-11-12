@@ -25,13 +25,11 @@ esp32:
       CONFIG_BOOTLOADER_FLASH_DC_AWARE: n     # To fix reset issue
       CONFIG_SPI_FLASH_HPM_DC_DISABLE: y
       CONFIG_ESP_CONSOLE_USB_CDC: y
-    advanced:
-      # Required for 120MHz PSRAM & FLASH:
-      enable_idf_experimental_features: True
+
 
 psram:
   mode: octal
-  speed: 120MHz
+  speed: 80Mhz
 
 preferences:
   flash_write_interval: 5min
