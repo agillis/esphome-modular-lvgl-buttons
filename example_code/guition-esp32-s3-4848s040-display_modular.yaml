@@ -75,9 +75,9 @@ packages:
   # Harware description file
   hardware: !include esphome-modular-lvgl-buttons/hardware/guition-esp32-s3-4848s040.yaml
   
-  # A basic boot screen and device diagnostic info page
-  loading_screen: !include esphome-modular-lvgl-buttons/pages/loading.yaml
-  info_screen: !include esphome-modular-lvgl-buttons/pages/info_480px.yaml
+  # Basic boot screen with ESPHome logo and device diagnostic info
+  loading_screen: !include esphome-modular-lvgl-buttons/pages/loading_480px.yaml
+  info_screen: !include esphome-modular-lvgl-buttons/pages/info.yaml
 
   # This section will Update button state and relay state from Home Assistant
   # Any button that has real time updates needs a section here

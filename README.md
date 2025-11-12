@@ -10,6 +10,10 @@
 * Elecrow CrowPanel `DIS05035H` (v2.2) 3.5" with resistive touch and USB-C  [Manufacturer's Link](https://www.elecrow.com/esp32-display-3-5-inch-hmi-display-spi-tft-lcd-touch-screen.html).
 * Waveshare `ESP32-S3-Touch-LCD-7` 7.0" with capacitive touch and USB-C [Manufacturer's Link](https://www.waveshare.com/esp32-s3-touch-lcd-7.htm).
 
+## What is this???
+
+I wanted to build simple touch panles to control lighting and also simple real time infermational display screen usingg ESPhome and Home Assistant. This libary does both. With only a few lines of code you can build the info displays and control panles of you dreams!
+
 ## Install ESPHome on a build machine
 
 I use a lot of svg vector graphics. The latest ESPHome does not install svg by default. Use pip to install cairosvg. If you have pre loaded Home Assistant hardware or images this should already be installed.
@@ -18,11 +22,31 @@ I use a lot of svg vector graphics. The latest ESPHome does not install svg by d
 pip install esphome cairosvg
 ```
 
+Use git to install this libary where your ESPhome YAML files are
+
+```
+git clone https://github.com/agillis/esphome-modular-lvgl-buttons.git
+```
+
+Grag a file from the demos directory that matches your screen and move it up with the rest of your ESPhome YAML files for your devicecs. For example if you have a Guition esp32-s3-4848s040
+
+```
+cp esphome-modular-lvgl-buttons/example_code/guition-esp32-s3-4848s040-display_modular.yaml .
+```
+
+Edit the file and change the name then build and deploy to your screen using serial or over Wi-Fi.
+
+```
+esphome compile guition-esp32-s3-4848s040-display_modular.yaml
+esphome run guition-esp32-s3-4848s040-display_modular.yaml --device 192.168.1.100
+```
+
 ## Downloading the code in Home Assistant
 
 I use the File Manager Add-on to download and edit code from Git repos and the ESPHome Device builder to build the code and install the resulting images onto my ESP32 devices.
 
 [File Manager Add-on](https://github.com/home-assistant/addons/tree/master/configurator)
+
 [ESPHome Device builder Add-on](https://esphome.io/)
 
 # More information on supported devices
