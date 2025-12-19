@@ -1,0 +1,170 @@
+# Guition-ESP32-P4-JC8012P4A1 Smart Screen
+#
+# Hardware configuration file
+
+external_components:  
+  - source: github://willumpie82/esphome@dev
+    components: [mipi_dsi]
+  - source: github://kvj/esphome@jd9365_gsl3680
+    components: [gsl3680]
+
+esphome:
+  min_version: 2025.10.0
+  project:
+    name: "Guition.ESP32-P4-JC1060P470"
+    version: "1.0"
+
+esp32:
+  variant: esp32p4
+  cpu_frequency: 360MHz
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: yes
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+psram:
+  mode: hex
+  speed: 200MHz
+  
+preferences:
+  flash_write_interval: 5min
+  
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true  
+
+# -------------------------------------------
+# Internal outputs
+# -------------------------------------------
+output:
+  # Backlight LED
+  - platform: ledc
+    pin: GPIO23
+    id: gpio_backlight_pwm
+    frequency: 100Hz
+    min_power: 0.03
+    zero_means_zero: true
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+    
+# -------------------------------------------
+# i2c bus
+# -------------------------------------------    
+i2c:
+  - id: bus_a
+    sda: GPIO7  
+    scl: GPIO8  
+    scan: true
+    frequency: 400kHz 
+
+# -------------------------------------------
+# Touchscreen
+# -------------------------------------------
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    # reset_pin: GPIO23  # Shared with backlight
+    interrupt_pin: GPIO21
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false   
+
+# -------------------------------------------
+# Display
+# -------------------------------------------
+display:
+  - platform: mipi_dsi
+    model: JC1060P470
+    id: my_display
+    update_interval: never
+    reset_pin:
+      number: GPIO05
+    rotation: 0
+    auto_clear_enabled: false
+    hsync_pulse_width: 20
+
+lvgl:
+  byte_order: little_endian
+  
+# -------------------------------------------
+# Audio - speaker/mic
+# ------------------------------------------- 
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    use_microphone: True
+
+i2s_audio:
+  - id: i2s_output
+    i2s_lrclk_pin: GPIO10
+    i2s_bclk_pin: GPIO12
+    i2s_mclk_pin: GPIO13
+
+speaker:
+  - platform: i2s_audio
+    i2s_audio_id: i2s_output
+    id: p4_speaker
+    i2s_dout_pin: GPIO9
+    dac_type: external
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: stereo
+    audio_dac: es8311_dac
+  - platform: mixer
+    id: mixer_speaker_id
+    output_speaker: p4_speaker
+    source_speakers:
+      - id: announcement_spk_mixer_input
+      - id: media_spk_mixer_input
+  - platform: resampler
+    id: media_spk_resampling_input
+    output_speaker: media_spk_mixer_input
+  - platform: resampler
+    id: announcement_spk_resampling_input
+    output_speaker: announcement_spk_mixer_input
+
+media_player:
+  - platform: speaker
+    name: "Speaker Media Player"
+    id: speaker_media_player_id
+    media_pipeline:
+        speaker: media_spk_resampling_input
+        num_channels: 2
+    announcement_pipeline:
+        speaker: announcement_spk_resampling_input
+        num_channels: 1
+        
+microphone:
+  - platform: i2s_audio
+    id: p4_microphone
+    i2s_din_pin: GPIO11
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    adc_type: external
+
+#audio_adc:
+#  - platform: es8311
+#    id: es8311_adc
+#    bits_per_sample: 16bit
+#    sample_rate: 16000

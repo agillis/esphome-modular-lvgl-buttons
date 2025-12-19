@@ -1,0 +1,196 @@
+# Substitution variables used through the codebase
+substitutions:
+  icon_font: mdi_icons_40
+  text_font: nunito_20
+  text_color: white
+  bg_color: black
+  button_on_color: "ep_orange"
+  button_off_color: "very_dark_gray"
+  icon_on_color: "yellow"
+  icon_off_color: "gray"
+  label_on_color: "white"
+  label_off_color: "gray"
+  button_text_color: "white"
+  touchscreen_idle_timeout: "30s"
+  touchscreen_daytime_brightness: "100%"
+  touchscreen_nighttime_brightness: "50%"
+  # Boot screen configuration
+  boot_screen_delay: 60s
+
+  # LCD backlight modes - Code in backlight.yaml
+  # Day mode is set to Sunrise
+  # Evening mode is set to sunset
+  # Set Night mode  at Mightnight here
+  screen_night_hour: '0'
+  screen_night_minute: '0'
+
+  # Screen Size
+  screen_height: 1200
+  screen_width: 800
+
+esphome:
+  name: "guition-esp32-p4-jc1060p470"
+  friendly_name: "Guition esp32-p4-jc1060p470"
+  comment: "Guition esp32-p4-jc1060p470 1024px * 600px Smart Screen"
+  on_boot:
+    - priority: 400
+      then:
+        - script.execute: update_loading_page
+
+logger:
+  level: debug
+  logs:
+    lvgl: info
+  hardware_uart: USB_SERIAL_JTAG
+  
+# Some screens need little_endian byte order and some need big_endian
+# this sets the byte order for all the images loaded in this file and the packages as well
+image:
+  defaults:
+    byte_order: little_endian  
+
+# Time update script - This is run once per second. Use it to update any time related labels.
+script:
+  - id: time_update
+    then:
+        # The format %I:%M %p will display the time in a 12-hour format with "am" or "pm" included  
+      - lvgl.label.update:
+          id: time_label
+          text: !lambda 'return id(system_time).now().strftime("%l:%M %P");'    
+          
+packages:
+  # Generic configuration for ESP32 screens
+  # SDL has no Wi-Fi
+  wifi: !include esphome-modular-lvgl-buttons/common/wifi.yaml
+  # Enable OTA updates with a status screen
+  ota_screen: !include esphome-modular-lvgl-buttons/common/ota.yaml
+  # All the colors
+  colors: !include esphome-modular-lvgl-buttons/common/color.yaml
+  # Some nice basic fonts
+  fonts: !include esphome-modular-lvgl-buttons/common/fonts.yaml
+  # 1000s of glyphs
+  glyphs: !include esphome-modular-lvgl-buttons/common/mdi_glyph_substitutions.yaml
+  # Some basic sensors
+  sensors: !include esphome-modular-lvgl-buttons/sensors/sensors_base.yaml
+  # Styles + Themes
+  theme_style: !include esphome-modular-lvgl-buttons/common/theme_style.yaml
+  # Use this theme for debugging
+  # theme_style: !include esphome-modular-lvgl-buttons/common/theme_style_debug.yaml
+  # Include if your touch screen has a backlight. Also sets the time from HA
+  backlight: !include esphome-modular-lvgl-buttons/common/backlignt_time.yaml
+
+  # Harware description file
+  hardware: !include esphome-modular-lvgl-buttons/hardware/guition-esp32-p4-jc1060p470.yaml
+  
+  # Basic boot screen with ESPHome logo and device diagnostic info
+  loading_screen: !include esphome-modular-lvgl-buttons/pages/loading_480px.yaml
+  # info screen - WiFi login, IP address, MAC address etc
+  info_screen: !include esphome-modular-lvgl-buttons/pages/info.yaml
+
+  # This section will add buttons and page to your screen using the ESPHome package system. 
+  # Each package has all the code required for the button or page (LVGL, sensors, etc)
+
+  # Add a button the controls a light in HA  
+  button_1: !include
+    file: esphome-modular-lvgl-buttons/buttons/switch_button.yaml
+    vars:
+      uid: button_1
+      row: 0
+      column: 0
+      text: Light
+      icon: $mdi_lightbulb
+      entity_id: "light.lounge_uplights"
+
+  # Add a button that displays the time
+  button_2: !include
+    file: esphome-modular-lvgl-buttons/buttons/time_button.yaml
+    vars:
+      uid: button_2
+      row: 0
+      column: 2
+      text: 00:00
+      click_page: info_screen
+      
+  # Add a button that goes to a different page
+  button_3: !include
+    file: esphome-modular-lvgl-buttons/buttons/page_button.yaml
+    vars:
+      uid: button_3
+      row: 1
+      column: 0
+      text: Info screen
+      icon: $mdi_information_box
+      click_page: info_screen      
+
+  # Add a dimmer light
+  button_4: !include
+    file: esphome-modular-lvgl-buttons/buttons/dimmer_light_button.yaml
+    vars:
+      uid: button_4
+      row: 2
+      column: 0
+      row_span: 2 # optional make a button bigger then one cell
+      text: RGB light
+      icon: $mdi_string_lights
+      entity_id: light.lounge_uplights
+
+  button_4_page: !include
+    file: esphome-modular-lvgl-buttons/pages/light_color.yaml
+    vars:
+      light_entity: "light.lounge_uplights"
+      widget_name: "button_4"
+
+
+# This is the main LVGL section. We start with a simple grid.
+lvgl:
+  buffer_size: 100%
+  pages:
+    - id: main_page
+      layout: 8x4
+      styles: page_style
+      <<: !include esphome-modular-lvgl-buttons/widgets/swipe_navigation.yaml
+      widgets:
+          # You can use the package section above to add prebuilt button types or build your own custom button from scratch here.
+          - container:
+              id: button_12
+              grid_cell_x_align: stretch
+              grid_cell_y_align: stretch
+              grid_cell_row_pos: 3
+              grid_cell_column_pos: 3
+              grid_cell_row_span: 1
+              grid_cell_column_span: 1
+              outline_width: 1   # debug code - This is for visualizing boundries remove for production
+              outline_color: red # debug code - This is for visualizing boundries remove for production
+              widgets:
+                - label:
+                    text_font: $text_font
+                    align: center
+                    text_color: white
+                    text: "Cell 3,7"
+  
+# If you want to use other icons add them to the list here
+font:
+  # http://materialdesignicons.com/cdn/7.4.47/
+  - file: 'https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf'
+    id: mdi_icons_40
+    size: 40
+    bpp: 8
+    glyphs: [
+      $mdi_lightbulb,  # mdi-lightbulb
+      $mdi_ceiling_light,  # mdi-ceiling-light
+      $mdi_lamp,  # mdi-lamp
+      $mdi_floor_lamp,  # mdi-floor-lamp
+      $mdi_string_lights,  # mdi-string-lights
+      $mdi_track_light,  # mdi-track-light
+      $mdi_bulkhead_light,  # mdi-bulkhead_light
+      $mdi_led_strip,  # mdi-led-strip
+      $mdi_coach_lamp,  # mdi-coach-lamp
+      $mdi_ceiling_fan_light,  # mdi-ceiling-fan-light
+      $mdi_bed,  # mdi-bed
+      $mdi_white_balance_sunny,  # mdi-white-balance-sunny
+      $mdi_brightness_6,  # mdi-brightness-6
+      $mdi_home,
+      $mdi_information_box,
+    ]
+ 
+
