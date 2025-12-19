@@ -1,12 +1,6 @@
-# Guition-ESP32-P4-JC8012P4A1 Smart Screen
+# Guition-ESP32-P4-JC1060P470 7inch Capacitive touch
 #
 # Hardware configuration file
-
-external_components:  
-  - source: github://willumpie82/esphome@dev
-    components: [mipi_dsi]
-  - source: github://kvj/esphome@jd9365_gsl3680
-    components: [gsl3680]
 
 esphome:
   min_version: 2025.10.0
