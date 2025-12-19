@@ -72,8 +72,6 @@ i2c:
     scl: GPIO8  
     scan: true
     frequency: 400kHz
-    # sda_pullup_enabled: False
-    # scl_pullup_enabled: False
 
 # -------------------------------------------
 # Touchscreen
@@ -113,8 +111,6 @@ audio_dac:
     id: es8311_dac
     i2c_id: bus_a
     address: 0x18
-    # use_microphone: True
-    # mic_gain: 24DB
 
 audio_adc:
   - platform: es7210
