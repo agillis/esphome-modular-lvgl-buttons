@@ -2,39 +2,43 @@ lvgl:
   page_wrap: true
   theme:
     obj:
+      scrollbar_mode: "OFF"    
       width: 100%
       height: 100%    
       border_width: 0
-      scrollable: false      
       pad_all: 0
       radius: 0
+      scrollable: false      
       bg_opa: TRANSP
       outline_width: 1
       outline_color: red
     label:
+      scrollbar_mode: "OFF"
       border_width: 0
       scrollable: false
-      text_color: black
+      text_font: $text_font
+      text_color: $label_off_color
       outline_width: 1
       outline_color: red
     image:
+      scrollbar_mode: "OFF"
       border_width: 0
       scrollable: false
       outline_width: 1
       outline_color: red
     button:
-      text_font: $text_font
-      checkable: false
-      press_lock: false
-      scroll_on_focus: true
-      radius: 25px
+      scrollbar_mode: "OFF"
       width: 100%
       height: 100%      
-      pad_all: 10px
-      shadow_width: 0 # This is required even though the default is supposed to be 0
+      border_width: 0
+      radius: 25
+      pad_all: 10
+      shadow_width: 0 # Bug? - This is required even though the default is supposed to be 0.
+      checkable: false
+      press_lock: false
+      scroll_on_focus: true      
       bg_opa: cover
       bg_color: $button_off_color
-      text_color: $label_off_color
       outline_width: 1
       outline_color: red
 
@@ -44,8 +48,11 @@ lvgl:
       bg_color: black
       bg_opa: cover
       pad_all: 1
+
     - id: time_style
-      text_color: white
+      scrollbar_mode: "OFF"
+      text_font: $text_font
+      text_color: $label_off_on
       align: center      
 
 select:
