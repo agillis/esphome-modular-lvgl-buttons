@@ -152,11 +152,10 @@ speaker:
 
 switch:
   - platform: gpio
-    pin: GPIO11 #PA-CTRL
-    name: "Speaker enable"
-    restore_mode: ALWAYS_ON
-    id: speaker_enable_switch
-    inverted: False
+    pin: GPIO11
+    name: "Audio Amplifier"
+    id: audio_amplifier
+    restore_mode: ALWAYS_OFF
 
 media_player:
   - platform: speaker
@@ -179,9 +178,8 @@ microphone:
   - platform: i2s_audio
     id: external_mic
     i2s_audio_id: i2s_output
-    i2s_mode: primary
     adc_type: external
-    i2s_din_pin: GPIO11
+    i2s_din_pin: GPIO48
     sample_rate: 16000
     bits_per_channel: 16bit
     channel: stereo
