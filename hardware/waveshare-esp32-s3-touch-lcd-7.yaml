@@ -17,9 +17,10 @@ esphome:
 esp32:
   variant: esp32s3
   flash_size: 16MB
-  cpu_frequency: 240MHz
   framework:
     type: esp-idf
+    advanced:
+       execute_from_psram: true
 
 psram:
   mode: octal

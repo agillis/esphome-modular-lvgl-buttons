@@ -1,26 +1,21 @@
 # 2.8" Round Display Development Board, 480×480
+# https://www.waveshare.com/esp32-s3-touch-lcd-2.8c.htm
 #
 # Hardware configuration file
 
 esphome:
   min_version: 2025.7.0
   project:
-    name: "Sunton.ESP32-S3-8048S070"
+    name: "Waveshare.ESP32-S3-touch-lcd-2.8c"
     version: "1.0"
 
 esp32:
-  board: esp32-s3-devkitc-1
-  flash_size: 8MB
   variant: esp32s3
+  flash_size: 16MB
   framework:
     type: esp-idf
-    sdkconfig_options:
-      CONFIG_ESPTOOLPY_FLASHFREQ: "80MHz" # this is needed for flashing
-      CONFIG_ESPTOOLPY_FLASHMODE_QIO: y
-      CONFIG_FLASHMODE_QIO: y
-      CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y
-      CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ: '240'
-      CONFIG_SPIRAM_RODATA: "y"
+    advanced:
+       execute_from_psram: true
 
 psram:
   mode: octal

@@ -3,15 +3,21 @@
 # Hardware configuration file
 
 esphome:
-  min_version: 2025.7.0
+  min_version: 2025.12.0
+  project:
+    name: "Sunton.ESP32-4827s032R"
+    version: "1.0"
 
 esp32:
-  board: esp32dev
+  variant: esp32s3
+  flash_size: 4MB
   framework:
     type: esp-idf
-
+    advanced:
+       execute_from_psram: true
+      
 preferences:
-  flash_write_interval: 5min
+  flash_write_interval: 5min  
 
 lvgl:
   buffer_size: 25%

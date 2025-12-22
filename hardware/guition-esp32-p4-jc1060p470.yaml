@@ -1,0 +1,289 @@
+# Guition-ESP32-P4-JC1060P470 7inch Capacitive touch
+#
+# Hardware configuration file
+
+esphome:
+  min_version: 2025.10.0
+  project:
+    name: "Guition.ESP32-P4-JC1060P470"
+    version: "1.0"
+
+esp32:
+  variant: esp32p4
+  cpu_frequency: 360MHz
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: yes
+
+esp_ldo:
+  - channel: 3
+    id: dsi_phy_enable
+    voltage: 2.5V
+    adjustable: True
+  - channel: 4
+    id: sd_card_power
+    voltage: 2.7V
+    adjustable: True
+
+psram:
+  mode: hex
+  speed: 200MHz
+  
+preferences:
+  flash_write_interval: 5min
+  
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true  
+
+# -------------------------------------------
+# Internal outputs
+# -------------------------------------------
+output:
+  - id: gpio_backlight_pwm
+    platform: ledc
+    pin: GPIO23
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 0s
+    gamma_correct: 1.0
+    
+# -------------------------------------------
+# i2c bus
+# -------------------------------------------    
+i2c:
+  - id: bus_a
+    sda: GPIO7  
+    scl: GPIO8  
+    scan: true
+    frequency: 400kHz
+
+# -------------------------------------------
+# Touchscreen
+# -------------------------------------------
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    # reset_pin: GPIO23  # Shared with backlight
+    interrupt_pin: GPIO21
+
+# -------------------------------------------
+# Display
+# -------------------------------------------
+display:
+  - platform: mipi_dsi
+    model: JC1060P470
+    id: my_display
+    update_interval: 17ms
+    reset_pin:
+      number: GPIO05
+    hsync_pulse_width: 20
+
+lvgl:
+  byte_order: little_endian
+  
+# -------------------------------------------
+# Audio - speaker/mic
+# ------------------------------------------- 
+i2s_audio:
+  - id: audio_bus
+    i2s_lrclk_pin: GPIO10
+    i2s_bclk_pin: GPIO12
+    i2s_mclk_pin: GPIO13
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    i2c_id: bus_a
+    address: 0x18
+
+audio_adc:
+  - platform: es7210
+    id: es7210_adc
+    i2c_id: bus_a
+    address: 0x36
+
+microphone:
+  - platform: i2s_audio
+    id: esp32_microphone
+    i2s_audio_id: audio_bus
+    i2s_din_pin: GPIO48
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    adc_type: external
+
+speaker:
+  - platform: i2s_audio
+    id: esp32_speaker
+    i2s_audio_id: audio_bus
+    i2s_dout_pin: GPIO9
+    audio_dac: es8311_dac
+    dac_type: external
+    channel: mono
+    buffer_duration: 100ms
+    bits_per_sample: 16bit
+    sample_rate: 48000
+
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: esp32_speaker
+    source_speakers:
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+
+  - platform: resampler
+    id: announcement_resampling_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+  - platform: resampler
+    id: media_resampling_speaker
+    output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+switch:
+  - platform: gpio
+    pin: GPIO11
+    name: "Audio Amplifier"
+    id: audio_amplifier
+    restore_mode: ALWAYS_OFF
+
+media_player:
+  - platform: speaker
+    name: "ESP32 P4 Media Player"
+    id: speaker_media_player
+    codec_support_enabled: true
+    volume_min: 0.5
+    volume_max: 0.75
+    volume_increment: 0.05
+    volume_initial: 0.6
+    announcement_pipeline:
+      speaker: announcement_resampling_speaker
+      format: FLAC
+      sample_rate: 48000
+      num_channels: 1
+    media_pipeline:
+      speaker: media_resampling_speaker
+      format: FLAC
+      num_channels: 1
+      sample_rate: 48000
+    on_announcement:
+      - if:
+          condition:
+            - microphone.is_capturing:
+          then:
+            - micro_wake_word.stop
+            - voice_assistant.stop
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 20
+          duration: 0.0s
+      - switch.turn_on: audio_amplifier
+      - delay: 100ms
+    on_state:
+      if:
+        condition:
+          and:
+            - not:
+                voice_assistant.is_running:
+            - not:
+                media_player.is_announcing:
+        then:
+          - mixer_speaker.apply_ducking:
+              id: media_mixing_input
+              decibel_reduction: 0
+              duration: 1.0s
+    on_play:
+      - logger.log: "Media player started playing, disabling microphone"
+      - switch.turn_on: audio_amplifier
+      - delay: 100ms
+      - micro_wake_word.stop
+      - voice_assistant.stop
+    on_idle:
+      - delay: 100ms
+      - switch.turn_off: audio_amplifier
+      - if:
+          condition:
+            not:
+              voice_assistant.is_running:
+          then:
+            - micro_wake_word.start
+
+sensor:
+  - platform: template
+    name: "Voice Assistant State"
+    lambda: |-
+      if (id(esp32_microphone).is_running()) {
+        return 1;
+      } else {
+        return 0;
+      }
+    update_interval: 2s
+
+text_sensor:
+  - platform: template
+    name: "Voice Assistant Status"
+    id: voice_status
+    update_interval: 5s
+    lambda: |-
+      if (id(esp32_microphone).is_running()) {
+        return {"Listening"};
+      } else {
+        return {"Idle"};
+      }
+
+micro_wake_word:
+  id: my_wake_word
+  models:
+    - model: alexa
+  on_wake_word_detected:
+    then:
+      - logger.log: "Wake word detected"
+      - voice_assistant.start:
+          wake_word: !lambda return wake_word;
+
+voice_assistant:
+  microphone: esp32_microphone
+  media_player: speaker_media_player
+  micro_wake_word: my_wake_word
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
+  conversation_timeout: 300s
+  on_end:
+    # Wait a short amount of time to see if an announcement starts
+    - wait_until:
+        condition:
+          - media_player.is_announcing:
+        timeout: 0.5s
+    # Announcement is finished and the I2S bus is free
+    - wait_until:
+        - and:
+            - not:
+                media_player.is_announcing:
+            - not:
+                media_player.is_playing:
+    - micro_wake_word.start:
+  on_client_connected:
+    - micro_wake_word.start:
+  on_client_disconnected:
+    - micro_wake_word.stop:
