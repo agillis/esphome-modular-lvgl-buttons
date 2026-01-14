@@ -66,7 +66,7 @@ Once the sensor exists in Home Assistant, ESPHome reads it using:
 
 ### Step 2: Configure ESPHome
 
-Include the weather packages in your ESPHome device YAML (see `example_code_advanced/SDL-weather-forcast.yaml` for a complete example):
+Include the weather packages in your ESPHome device YAML (see `example_code_advanced/SDL-weather-forcast.yaml` for a complete example - note the filename has a typo):
 
 ```yaml
 packages:
@@ -76,7 +76,7 @@ packages:
     vars:
       size: 80
   
-  # Display weather forecast using icon set
+  # Display weather forecast using icon set (package name has typo in original code)
   weather_forcast_80: !include
     file: esphome-modular-lvgl-buttons/weather/weather_forecast.yaml
     vars:
