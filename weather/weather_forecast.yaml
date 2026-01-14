@@ -1,6 +1,17 @@
 ---
-# Weather forcast from Home Assistant Accuweather plugin
-
+# ESPHome weather forecast text sensors
+# These sensors read attributes from the Home Assistant sensor.weather_forecast
+# The sensor.weather_forecast must be created in Home Assistant first
+# See: ../homeassistant_config/accuweather_forcast.yaml for the HA template configuration
+#
+# This file creates text sensors for 4 days of forecast data (0-3):
+# - condition_X: Weather condition (sunny, cloudy, rainy, etc.)
+# - temperature_hi_X: High temperature
+# - temperature_lo_X: Low temperature
+# - day_X: Day of week abbreviation (Mon, Tue, etc.)
+#
+# When values update, the corresponding LVGL labels and icons are automatically updated
+#
 text_sensor:
   - platform: homeassistant
     entity_id: sensor.weather_forecast
