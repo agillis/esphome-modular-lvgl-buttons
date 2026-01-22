@@ -66,7 +66,7 @@ A modular library for building beautiful, touch-enabled control panels using ESP
 | Model | Size | Resolution | Touch | Link |
 |-------|------|------------|-------|------|
 | `ESP32-S3-Box-3` | 2.4" | 320×240 | Capacitive | [AliExpress search for ESP32 S3 Box 3](https://www.espressif.com/en/dev-board/esp32-s3-box-3-en) |
-| `LilyGo T-Display-S3` | 1.9" | 170×320 | Capacitive | [AliExpress search for LilyGo T-Display-S3](https://www.aliexpress.com/wholesale?SearchText=LilyGo+T-Display-S3) |
+| `LilyGo T-Display-S3` | 1.9" | 170×320 | Capacitive | [Espressit](https://www.espressif.com/en/dev-board/esp32-s3-box-3-en) |
 | `SDL Display` | Variable | Variable | Mouse | Local SDL testing environment (desktop) |
 
 ## 🧩 Available Components
