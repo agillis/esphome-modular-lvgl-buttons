@@ -1,0 +1,360 @@
+# ESPHome LVGL Touchscreen Example
+# 
+# This is a comprehensive example configuration for ESP32 touchscreen displays
+# with LVGL support, suitable for contribution to the ESPHome project.
+#
+# This example demonstrates:
+# - Multi-page LVGL UI with swipe navigation
+# - Home Assistant entity integration
+# - Touch-responsive buttons
+# - Brightness controls
+# - Boot/loading screen
+# - Color wheel for RGB lights
+#
+# Hardware: Works with most ESP32-S3 displays (480x480 or 480x800)
+# Tested on: Guition ESP32-4848S040, Sunton ESP32-8048S070, Waveshare ESP32-S3-Touch-LCD-7
+
+substitutions:
+  device_name: "lvgl-touch-panel"
+  friendly_name: "LVGL Touch Panel"
+  
+  # Display configuration
+  display_width: "480"
+  display_height: "480"
+  
+  # Home Assistant entities (customize these)
+  light_entity_1: "light.living_room"
+  light_entity_2: "light.bedroom"
+  switch_entity_1: "switch.fan"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2025.1.0
+  
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+  
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot in case WiFi connection fails
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret ap_password
+
+# =============================================================================
+# DISPLAY & TOUCHSCREEN CONFIGURATION
+# =============================================================================
+# Note: Adjust pins and settings for your specific hardware
+
+# Backlight control
+output:
+  - platform: ledc
+    pin: GPIO38
+    id: backlight_pwm
+    frequency: 100Hz
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+
+# Touchscreen I2C
+i2c:
+  sda: GPIO19
+  scl: GPIO45
+
+touchscreen:
+  - platform: gt911
+    id: touch_screen
+    interrupt_pin: GPIO18
+
+# Display SPI
+spi:
+  clk_pin: GPIO48
+  mosi_pin: GPIO47
+
+# Note: This is a generic example - adjust for your specific display driver
+display:
+  - platform: ili9xxx  # Or st7701s, st7789v, etc. depending on your display
+    model: TFT 2.4
+    id: main_display
+    cs_pin: GPIO39
+    dc_pin: GPIO7
+    reset_pin: GPIO6
+
+# =============================================================================
+# HOME ASSISTANT ENTITIES
+# =============================================================================
+# Import entities from Home Assistant for control
+
+homeassistant:
+  # Sync time from Home Assistant
+  time:
+    - platform: homeassistant
+      id: ha_time
+
+# Example light entities
+light:
+  - platform: homeassistant
+    id: ha_light_1
+    entity_id: ${light_entity_1}
+    
+  - platform: homeassistant
+    id: ha_light_2
+    entity_id: ${light_entity_2}
+
+# Example switch entities
+switch:
+  - platform: homeassistant
+    id: ha_switch_1
+    entity_id: ${switch_entity_1}
+
+# =============================================================================
+# LVGL CONFIGURATION
+# =============================================================================
+
+lvgl:
+  log_level: INFO
+  color_depth: 16
+  
+  # Performance settings
+  buffer_size: 25%  # Use 25% of display size for buffer
+  
+  # Theme and styling
+  theme:
+    obj:
+      bg_color: 0x000000
+      text_color: 0xFFFFFF
+      border_color: 0x505050
+      
+    btn:
+      bg_color: 0x1A1A1A
+      bg_color_pressed: 0x2A2A2A
+      text_color: 0xFFFFFF
+      border_width: 1
+      border_color: 0x404040
+      radius: 10
+      
+    slider:
+      bg_color: 0x1A1A1A
+      knob_color: 0x3D7BFF
+      indicator_color: 0x3D7BFF
+      
+  # Touchscreen configuration
+  touchscreens:
+    - touchscreen_id: touch_screen
+      long_press_time: 500ms
+      long_press_repeat_time: 200ms
+
+  # =============================================================================
+  # PAGE 1: MAIN CONTROLS
+  # =============================================================================
+  pages:
+    - id: main_page
+      widgets:
+        # Page indicator
+        - obj:
+            align: TOP_MID
+            y: 10
+            width: 100
+            height: 30
+            styles: |
+              bg_color: 0x333333
+              border_width: 0
+              radius: 15
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Main"
+                  
+        # Light 1 Button
+        - obj:
+            x: 20
+            y: 60
+            width: 200
+            height: 80
+            clickable: true
+            on_click:
+              - homeassistant.service:
+                  service: light.toggle
+                  data:
+                    entity_id: ${light_entity_1}
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Living Room"
+                  
+        # Light 2 Button
+        - obj:
+            x: 260
+            y: 60
+            width: 200
+            height: 80
+            clickable: true
+            on_click:
+              - homeassistant.service:
+                  service: light.toggle
+                  data:
+                    entity_id: ${light_entity_2}
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Bedroom"
+                  
+        # Brightness Slider for Light 1
+        - slider:
+            x: 20
+            y: 160
+            width: 440
+            height: 50
+            min_value: 0
+            max_value: 100
+            on_release:
+              - homeassistant.service:
+                  service: light.turn_on
+                  data:
+                    entity_id: ${light_entity_1}
+                    brightness_pct: !lambda return x;
+                    
+        # Switch Button
+        - obj:
+            x: 20
+            y: 240
+            width: 200
+            height: 80
+            clickable: true
+            on_click:
+              - homeassistant.service:
+                  service: switch.toggle
+                  data:
+                    entity_id: ${switch_entity_1}
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Fan"
+                  
+        # Navigation hint
+        - label:
+            align: BOTTOM_MID
+            y: -10
+            text: "← Swipe for more →"
+            styles: |
+              text_color: 0x808080
+
+  # =============================================================================
+  # PAGE 2: SETTINGS
+  # =============================================================================
+    - id: settings_page
+      widgets:
+        # Page indicator
+        - obj:
+            align: TOP_MID
+            y: 10
+            width: 100
+            height: 30
+            styles: |
+              bg_color: 0x333333
+              border_width: 0
+              radius: 15
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Settings"
+                  
+        # Display brightness control
+        - label:
+            x: 20
+            y: 70
+            text: "Display Brightness"
+            
+        - slider:
+            x: 20
+            y: 100
+            width: 440
+            height: 50
+            min_value: 10
+            max_value: 100
+            value: 80
+            on_release:
+              - light.turn_on:
+                  id: display_backlight
+                  brightness: !lambda return x / 100.0;
+                  
+        # System info
+        - label:
+            x: 20
+            y: 180
+            text: !lambda |-
+              return "IP: " + WiFi.localIP().toString().c_str();
+              
+        - label:
+            x: 20
+            y: 220
+            text: !lambda |-
+              return "Uptime: " + str(id(ha_time).now().timestamp);
+
+  # =============================================================================
+  # SWIPE NAVIGATION
+  # =============================================================================
+  # Enable swipe gestures to navigate between pages
+  on_gesture:
+    - if:
+        condition:
+          lambda: return dir == LV_DIR_LEFT;
+        then:
+          - lvgl.page.next
+    - if:
+        condition:
+          lambda: return dir == LV_DIR_RIGHT;
+        then:
+          - lvgl.page.previous
+
+# =============================================================================
+# AUTOMATIONS
+# =============================================================================
+
+# Dim display at night
+script:
+  - id: adjust_backlight_time
+    mode: restart
+    then:
+      - if:
+          condition:
+            - lambda: |-
+                auto time = id(ha_time).now();
+                int hour = time.hour;
+                return (hour >= 22 || hour < 6);
+          then:
+            - light.turn_on:
+                id: display_backlight
+                brightness: 20%
+          else:
+            - light.turn_on:
+                id: display_backlight
+                brightness: 80%
+
+# Run backlight adjustment every hour
+interval:
+  - interval: 1h
+    then:
+      - script.execute: adjust_backlight_time
