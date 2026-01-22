@@ -47,11 +47,11 @@ A modular library for building beautiful, touch-enabled control panels using ESP
 
 | Model | Size | Resolution | Touch | Official Link |
 |-------|------|------------|-------|---------------|
-| ESP32-S3-Touch-LCD-2.8 | 2.8″ | 240×320 | Capacitive | [Waveshare] (https://www.waveshare.com/esp32-s3-touch-lcd-2.8c.htm) |
-| ESP32-S3-Touch-LCD-4.3 | 4.3″ | 800×480 | Capacitive | [Waveshare] (https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4.3) |
-| ESP32-S3-Touch-LCD-4.3B | 4.3″ | 800×480 | Capacitive | [Waveshare] (https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4.3B) |
-| ESP32-S3-Touch-LCD-4B | 4.0″ | 480×480 | Capacitive | [Waveshare] (https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4B) |
-| ESP32-S3-Touch-LCD-7 | 7.0″ | 800×480 | Capacitive | [Waveshare] (https://www.waveshare.com/esp32-s3-touch-lcd-7.htm) |
+| ESP32-S3-Touch-LCD-2.8 | 2.8″ | 240×320 | Capacitive | [Waveshare](https://www.waveshare.com/esp32-s3-touch-lcd-2.8c.htm) |
+| ESP32-S3-Touch-LCD-4.3 | 4.3″ | 800×480 | Capacitive | [Waveshare](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4.3) |
+| ESP32-S3-Touch-LCD-4.3B | 4.3″ | 800×480 | Capacitive | [Waveshare](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4.3B) |
+| ESP32-S3-Touch-LCD-4B | 4.0″ | 480×480 | Capacitive | [Waveshare](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4B) |
+| ESP32-S3-Touch-LCD-7 | 7.0″ | 800×480 | Capacitive | [Waveshare](https://www.waveshare.com/esp32-s3-touch-lcd-7.htm) |
 
 ### Elecrow Displays
 
