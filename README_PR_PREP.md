@@ -228,7 +228,7 @@ If you checked all boxes, you're ready to contribute!
 
 ## Questions About This Repository?
 
-- **Issues:** https://github.com/agillis/esphome-modular-lvgl-buttons/issues
+- **Issues:** Open an issue in this repository
 - **Discussions:** Use GitHub discussions
 - **Author:** See repository contributors
 

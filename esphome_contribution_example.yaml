@@ -305,13 +305,14 @@ lvgl:
             x: 20
             y: 180
             text: !lambda |-
-              return "IP: " + WiFi.localIP().toString().c_str();
+              return "IP: " + WiFi.localIP().str();
               
         - label:
             x: 20
             y: 220
             text: !lambda |-
-              return "Uptime: " + str(id(ha_time).now().timestamp);
+              auto time = id(ha_time).now();
+              return "Uptime: " + time.strftime("%H:%M");
 
   # =============================================================================
   # SWIPE NAVIGATION
