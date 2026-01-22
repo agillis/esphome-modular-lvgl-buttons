@@ -27,21 +27,21 @@ A modular library for building beautiful, touch-enabled control panels using ESP
 |-------|------|------------|-------|----------|------|
 | `ESP32-4848S040` | 4.0" | 480×480 | Capacitive | 120V/220V relays, built-in power supply, USB-C | [ESPHome Devices](https://devices.esphome.io/devices/Guition-ESP32-S3-4848S040/) |
 | `ESP32-JC8048W550` | 5.0" | 480×800 | Capacitive | 16MB flash, Qwiic (I2C) port, speaker port, USB-C | [AliExpress](https://www.aliexpress.com/item/3256806546911788.html) |
-| `ESP32-JC8048W535` | 3.5" | 480×320 | Capacitive | USB-C | [AliExpress search results for JC8048W535](https://www.aliexpress.com/wholesale?SearchText=JC8048W535) |
-| `ESP32-jc4827w543C` | 4.3" | 272×480 | Capacitive | Bright IPS display, DAC + AMP, speaker connector, USB-C | [AliExpress search results for jc4827w543C](https://www.aliexpress.com/wholesale?SearchText=jc4827w543C) |
-| `ESP32-P4-JC1060P470` | 4.7" | 1060×600 | Capacitive | ESP32-P4 based, USB-C | [AliExpress search results for JC1060P470](https://www.aliexpress.com/wholesale?SearchText=JC1060P470) |
-| `ESP32-P4-JC8012P4A1` | - | 800×1280 | Capacitive | ESP32-P4 based, USB-C | [AliExpress search for JC8012P4A1](https://www.aliexpress.com/wholesale?SearchText=JC8012P4A1) |
+| `ESP32-JC8048W535` | 3.5" | 480×320 | Capacitive | USB-C | [AliExpress](https://www.aliexpress.com/item/3256806546911788.html) |
+| `ESP32-jc4827w543C` | 4.3" | 272×480 | Capacitive | Bright IPS display, DAC + AMP, speaker connector, USB-C | [AliExpress](https://www.aliexpress.com/item/3256806543342794.html) |
+| `ESP32-P4-JC1060P470` | 4.7" | 1060×600 | Capacitive | ESP32-P4 based, USB-C | [AliExpress](https://www.aliexpress.com/item/1005004952694042.html) |
+| `ESP32-P4-JC8012P4A1` | - | 800×1280 | Capacitive | ESP32-P4 based, USB-C | [AliExpress](https://www.aliexpress.com/item/1005004952694042.html) |
 
 ### Sunton Displays
 
 | Model | Size | Resolution | Touch | Features | Link |
 |-------|------|------------|-------|----------|------|
-| `ESP32-8048S043` | 4.3" | 480×272 | Capacitive | USB-C | [AliExpress search results for 8048S043](https://www.aliexpress.com/wholesale?SearchText=8048S043) |
-| `ESP32-8048S050` | 5.0" | 480×800 | Capacitive | USB-C | [AliExpress search results for 8048S050](https://www.aliexpress.com/wholesale?SearchText=8048S050) |
-| `ESP32-8048S070` | 7.0" | 480×800 | Capacitive | Large display, great for info displays, USB-C | [AliExpress search results for 8048S070](https://www.aliexpress.com/wholesale?SearchText=8048S070) |
-| `ESP32-2432S028` | 2.8" | 320×240 | Capacitive | USB-C | [AliExpress search results for 2432S028](https://www.aliexpress.com/wholesale?SearchText=2432S028) |
-| `ESP32-2432S028R` | 2.8" | 320×240 | Resistive | USB-C | [AliExpress search results for 2432S028R](https://www.aliexpress.com/wholesale?SearchText=2432S028R) |
-| `ESP32-4827S032R` | 3.2" | 480×320 | Resistive | USB-C | [AliExpress search results for 4827S032R](https://www.aliexpress.com/wholesale?SearchText=4827S032R) |
+| `ESP32-8048S043` | 4.3" | 480×272 | Capacitive | USB-C | [AliExpress](https://www.aliexpress.com/item/3256807713569037.html) |
+| `ESP32-8048S050` | 5.0" | 480×800 | Capacitive | USB-C | [AliExpress](https://www.aliexpress.com/item/1005004952694042.html) |
+| `ESP32-8048S070` | 7.0" | 480×800 | Capacitive | Large display, great for info displays, USB-C | [AliExpress](https://www.aliexpress.com/item/3256807882909237.html) |
+| `ESP32-2432S028` | 2.8" | 320×240 | Capacitive | USB-C | [AliExpress](https://www.aliexpress.com/item/1005004952694042.html) |
+| `ESP32-2432S028R` | 2.8" | 320×240 | Resistive | USB-C | [AliExpress](https://www.aliexpress.com/item/1005004952694042.html) |
+| `ESP32-4827S032R` | 3.2" | 480×320 | Resistive | USB-C | [AliExpress](https://www.aliexpress.com/item/1005004952694042.html) |
 
 ### Waveshare Displays
 
@@ -67,4 +67,4 @@ A modular library for building beautiful, touch-enabled control panels using ESP
 |-------|------|------------|-------|------|
 | `ESP32-S3-Box-3` | 2.4" | 320×240 | Capacitive | [AliExpress search for ESP32 S3 Box 3](https://www.aliexpress.com/wholesale?SearchText=ESP32+S3+Box+3) |
 | `LilyGo T-Display-S3` | 1.9" | 170×320 | Capacitive | [AliExpress search for LilyGo T-Display-S3](https://www.aliexpress.com/wholesale?SearchText=LilyGo+T-Display-S3) |
-| `SDL Display` | Variable | Variable | Mouse | Local SDL testing environment (desktop) |
+| `SDL Display` | Variable | Variable | Mouse | Local SDL testing environment (desktop) | 
