@@ -14,7 +14,7 @@ esp32:
     type: esp-idf
     advanced:
       enable_idf_experimental_features: true
-  cpu_frequency: 400MHz
+  cpu_frequency: 350MHz
 
 psram:
   mode: hex
