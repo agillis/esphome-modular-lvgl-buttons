@@ -1,13 +1,8 @@
-# The Waveshare ESP32-P4-WIFI6-my_touchscreen-LCD-7B is a self contained, 7 inch 1024x600 touchscreen display with an ESP32-P4 MCU.
+# The Waveshare SP32-P4-WIFI6-Touch-LCD-7B is a self contained, 7 inch 1024x600 touchscreen display with an ESP32-P4 MCU.
 # It has an ESP32-C6 co-processor that gives the P4 Wi-Fi capabilities.
 #
 # Schematic: https://files.waveshare.com/wiki/ESP32-P4-WIFI6-Touch-LCD-7B/ESP32-P4-WIFI6-Touch-LCD-7B.pdf
 ---
-esphome:
-  min_version: 2025.12.0
-  project:
-    name: "Waveshare.ESP32-P4-WIFI6-Touch-LCD-7B"
-    version: "1.0.0"
 
 # We won't need this once this board is added to ESPhome
 external_components:
@@ -15,14 +10,27 @@ external_components:
     components: [mipi_dsi]
     refresh: 1h
 
+
+substitutions:
+  # Screen Size
+  screen_height: 600
+  screen_width: 1024
+
+
+esphome:
+  min_version: 2026.1.0
+  project:
+    name: "Waveshare.ESP32-P4-WIFI6-Touch-LCD-7B"
+    version: "1.0"
+
 esp32:
   variant: esp32p4
   flash_size: 32MB
+  cpu_frequency: 360MHz
   framework:
     type: esp-idf
     advanced:
       enable_idf_experimental_features: true
-  cpu_frequency: 360MHz
 
 esp32_hosted:
   variant: ESP32C6
@@ -113,7 +121,7 @@ display:
       width: 1024
       height: 600
 
-# LVGL settings required for this display
+# Special LVGL settings required for this display  
 lvgl:
   byte_order: little_endian
 

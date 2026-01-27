@@ -24,10 +24,6 @@ substitutions:
   screen_night_hour: '0'
   screen_night_minute: '0'
 
-  # Screen Size
-  screen_height: 1200
-  screen_width: 800
-
 esphome:
   name: "guition-esp32-p4-jc8012p4a1"
   friendly_name: "Guition ESP32-P4-JC8012P4A1"

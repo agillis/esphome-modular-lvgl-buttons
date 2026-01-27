@@ -1,14 +1,55 @@
+# Guition.ESP32-P4-jc4880p443
+#
+# Hardware configuration file
+
 substitutions:
   # Screen Size (Configured as Lanscape)
   screen_height: 480
   screen_width: 800
 
 esphome:
-  min_version: 2025.12.0
+  min_version: 2026.1.0
   project:
     name: "Guition.ESP32-P4-jc4880p443"
     version: "1.0"
 
+esp32:
+  variant: esp32p4
+  flash_size: 16MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: true
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+preferences:
+  flash_write_interval: 5min
+
+#-------------------------------------------
+# Network hardware
+#-------------------------------------------  
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true  
+
+# -------------------------------------------
+# Internal outputs
+# -------------------------------------------
 output:
   # Backlight LED
   - platform: ledc
@@ -23,16 +64,43 @@ light:
     id: display_backlight
     restore_mode: ALWAYS_ON
 
+# -------------------------------------------
+# i2c bus
+# -------------------------------------------    
+i2c:
+  - id: bus_a
+    sda: GPIO7  
+    scl: GPIO8  
+    scan: true
+    frequency: 400kHz
 
-esp32:
-  variant: esp32p4
-  flash_size: 16MB
-  framework:
-    type: esp-idf
-    advanced:
-      enable_idf_experimental_features: true
-  cpu_frequency: 360MHz
+# -------------------------------------------
+# Touchscreen
+# -------------------------------------------
+touchscreen:
+  - platform: gt911
+    i2c_id: bus_a
+    id: my_touchscreen
+    reset_pin: GPIO3
+    transform: #This is for 90 degree display rotation
+      swap_xy: true
+      mirror_x: false
+      mirror_y: true
+    # on_touch:
+      # - logger.log:
+            # format: Touch at (%d, %d)
+            # args: [touch.x, touch.y]
+      # - lambda: |-
+            # ESP_LOGI("cal", "x=%d, y=%d, x_raw=%d, y_raw=%0d",
+                # touch.x,
+                # touch.y,
+                # touch.x_raw,
+                # touch.y_raw
+                # );
 
+# -------------------------------------------
+# Display
+# -------------------------------------------
 display:
   - platform: mipi_dsi
     id: device_display
@@ -43,59 +111,15 @@ display:
 # Special LVGL settings required for this display  
 lvgl:
   byte_order: little_endian
-   
-touchscreen:
-  platform: gt911
-  i2c_id: i2c_bus
-  id: device_touchscreen
-  reset_pin: GPIO3
-  update_interval: 100ms
-  transform: #This is for 90 degree display rotation
-    swap_xy: true
-    mirror_x: false
-    mirror_y: true
-  on_update:
-    then:
-      - lambda: |-
-          if (touches.size() > 0) {
-            auto touch = touches[0];
-            ESP_LOGI("TOUCH", "X=%d Y=%d", touch.x, touch.y);
-          }
-esp_ldo:
-  - channel: 3
-    voltage: 2.5V
 
-psram:
-  mode: hex
-  speed: 200MHz
-
-preferences:
-  flash_write_interval: 5min
-
-esp32_hosted:
-  variant: ESP32C6
-  reset_pin: GPIO54
-  cmd_pin: GPIO19
-  clk_pin: GPIO18
-  d0_pin: GPIO14
-  d1_pin: GPIO15
-  d2_pin: GPIO16
-  d3_pin: GPIO17
-  active_high: true
-
-i2c:
-  id: i2c_bus
-  sda: 7
-  scl: 8
-  scan: false
-  frequency: 400kHz
-
-# Audio section
+# -------------------------------------------
+# Audio - speaker/mic
+# ------------------------------------------- 
 audio_dac:
   - platform: es8311
     id: esp7311_dac
     address: 0x18
-    i2c_id: i2c_bus
+    i2c_id: bus_a
 
 i2s_audio:
   - id: i2s_bus

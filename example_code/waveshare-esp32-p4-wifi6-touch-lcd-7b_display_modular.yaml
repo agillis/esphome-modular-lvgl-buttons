@@ -24,10 +24,6 @@ substitutions:
   screen_night_hour: '0'
   screen_night_minute: '0'
 
-  # Screen Size
-  screen_height: 600
-  screen_width: 1024
-
 esphome:
   name: "waveshare-esp32-p4-touch-lcd-7b"
   friendly_name: "waveshare-esp32-p4-wifi6-touch-lcd-7b"

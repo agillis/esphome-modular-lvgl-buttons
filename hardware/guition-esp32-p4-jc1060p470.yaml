@@ -2,22 +2,25 @@
 #
 # Hardware configuration file
 
+substitutions:
+  # Screen Size
+  screen_height: 1200
+  screen_width: 800
+
 esphome:
-  min_version: 2025.12.0
+  min_version: 2026.1.0
   project:
     name: "Guition.ESP32-P4-JC1060P470"
     version: "1.0"
 
 esp32:
   variant: esp32p4
-  cpu_frequency: 360MHz
   flash_size: 16MB
+  cpu_frequency: 360MHz
   framework:
     type: esp-idf
-    sdkconfig_options:
-      CONFIG_SPIRAM_XIP_FROM_PSRAM: y   # To stop the screen flashing during OTA updates
     advanced:
-      enable_idf_experimental_features: yes
+      enable_idf_experimental_features: true
 
 esp_ldo:
   - channel: 3
@@ -35,6 +38,10 @@ psram:
   
 preferences:
   flash_write_interval: 5min
+  
+#-------------------------------------------
+# Network hardware
+#-------------------------------------------  
   
 esp32_hosted:
   variant: ESP32C6
@@ -83,7 +90,18 @@ touchscreen:
     id: my_touchscreen
     # reset_pin: GPIO23  # Shared with backlight
     interrupt_pin: GPIO21
-
+  # on_touch:
+    # - logger.log:
+          # format: Touch at (%d, %d)
+          # args: [touch.x, touch.y]
+    # - lambda: |-
+          # ESP_LOGI("cal", "x=%d, y=%d, x_raw=%d, y_raw=%0d",
+              # touch.x,
+              # touch.y,
+              # touch.x_raw,
+              # touch.y_raw
+              # );
+              
 # -------------------------------------------
 # Display
 # -------------------------------------------
@@ -96,6 +114,7 @@ display:
       number: GPIO05
     hsync_pulse_width: 20
 
+# Special LVGL settings required for this display  
 lvgl:
   byte_order: little_endian
   

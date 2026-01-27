@@ -8,20 +8,29 @@ external_components:
   - source: github://kvj/esphome@jd9365_gsl3680
     components: [gsl3680]
 
+substitutions:
+  # Screen Size
+  screen_height: 1200
+  screen_width: 800
+
 esphome:
-  min_version: 2025.10.0
+  min_version: 2026.1.0
   project:
     name: "Guition.ESP32-P4-JC8012P4A1"
     version: "1.0"
 
 esp32:
-  board: esp32-p4-evboard
-  cpu_frequency: 350MHz
+  variant: esp32p4
   flash_size: 16MB
+  cpu_frequency: 360MHz
   framework:
     type: esp-idf
     advanced:
-      enable_idf_experimental_features: yes
+      enable_idf_experimental_features: true
+
+# Special LVGL settings required for this display  
+lvgl:
+  byte_order: little_endian
 
 esp_ldo:
   - channel: 3
@@ -118,6 +127,7 @@ display:
       width: 800
       height: 1280
 
+# Special LVGL settings required for this display  
 lvgl:
   byte_order: little_endian
   

@@ -24,10 +24,6 @@ substitutions:
   screen_night_hour: '0'
   screen_night_minute: '0'
 
-  # Screen Size
-  screen_height: 720
-  screen_width: 720
-
 esphome:
   name: "waveshare-esp32-p4-86-panel"
   friendly_name: "Waveshare ESP32-P4-86-Panel"
