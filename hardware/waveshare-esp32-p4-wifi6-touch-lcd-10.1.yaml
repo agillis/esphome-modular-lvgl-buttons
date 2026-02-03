@@ -1,24 +1,18 @@
-# The Waveshare ESP32-P4-WIFI6-Touch-LCD-7B is a self contained, 7 inch 1024x600 touchscreen display with an ESP32-P4 MCU.
-# It has an ESP32-C6 co-processor that gives the P4 Wi-Fi capabilities.
+# The Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1 is a self contained, 10.1 inch 800x1280 touchscreen display with an ESP32-P4 MCU.
 #
-# Schematic: https://files.waveshare.com/wiki/ESP32-P4-WIFI6-Touch-LCD-7B/ESP32-P4-WIFI6-Touch-LCD-7B.pdf
+# Schematic: https://github.com/waveshareteam/ESP32-P4-WIFI6-Touch-LCD-X
+# Wiki: https://www.waveshare.com/wiki/ESP32-P4-WIFI6-Touch-LCD-10.1
 ---
 
-# We won't need this once this board is added to ESPhome
-external_components:
-  - source: github://pr#13608
-    components: [mipi_dsi]
-    refresh: 1h
-
 substitutions:
-  # Screen Size
-  screen_height: 600
-  screen_width: 1024
+  # Screen Size (portrait orientation - 10.1" display)
+  screen_height: 1280
+  screen_width: 800
 
 esphome:
   min_version: 2026.1.0
   project:
-    name: "Waveshare.ESP32-P4-WIFI6-Touch-LCD-7B"
+    name: "Waveshare.ESP32-P4-WIFI6-Touch-LCD-10-1"
     version: "1.0"
 
 esp32:
@@ -53,7 +47,7 @@ esp_ldo:
     channel: 3
 
 # -------------------------------------------
-# Touchscreen gt911 i2c
+# Touchscreen GT911/GT9271 i2c
 # -------------------------------------------
 i2c:
   - id: bus_a
@@ -66,8 +60,6 @@ touchscreen:
   - platform: gt911
     id: my_touchscreen
     i2c_id: bus_a
-    reset_pin: GPIO23
-    update_interval: 50ms
     transform:
       swap_xy: false
       mirror_x: false
@@ -90,8 +82,8 @@ touchscreen:
 output:
   - platform: ledc
     id: gpio_backlight_pwm
-    pin: GPIO32
-    inverted: true
+    pin: GPIO26
+    inverted: false
     frequency: 1000Hz
 
 light:
@@ -109,15 +101,10 @@ light:
 display:
   - platform: mipi_dsi
     id: main_display
-    model: WAVESHARE-ESP32-P4-WIFI6-TOUCH-LCD-7B
-    reset_pin:
-      number: 33
-    rotation: 180
-    update_interval: never
-    auto_clear_enabled: false
+    model: WAVESHARE-P4-NANO-10.1
     dimensions:
-      width: 1024
-      height: 600
+      width: 800
+      height: 1280
 
 # Special LVGL settings required for this display  
 lvgl:
