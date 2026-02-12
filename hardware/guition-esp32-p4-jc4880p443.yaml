@@ -1,6 +1,7 @@
-# Guition.ESP32-P4-jc4880p443
-#
+---
 # Hardware configuration file
+# Guition ESP32-P4-jc4880p443 4.3" 480X800
+#
 
 substitutions:
   # Screen Size (Configured as Lanscape)

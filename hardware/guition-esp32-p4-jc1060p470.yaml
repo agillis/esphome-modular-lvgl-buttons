@@ -1,4 +1,4 @@
-# Guition-ESP32-P4-JC1060P470 7inch Capacitive touch
+# Guition-ESP32-P4-JC1060P470 7" Capacitive touch
 #
 # Hardware configuration file
 
@@ -141,7 +141,7 @@ audio_adc:
 
 microphone:
   - platform: i2s_audio
-    id: esp32_microphone
+    id: my_microphone
     i2s_audio_id: audio_bus
     i2s_din_pin: GPIO48
     sample_rate: 16000
@@ -150,7 +150,7 @@ microphone:
 
 speaker:
   - platform: i2s_audio
-    id: esp32_speaker
+    id: my_speaker
     i2s_audio_id: audio_bus
     i2s_dout_pin: GPIO9
     audio_dac: es8311_dac
@@ -162,7 +162,7 @@ speaker:
 
   - platform: mixer
     id: mixing_speaker
-    output_speaker: esp32_speaker
+    output_speaker: my_speaker
     source_speakers:
       - id: announcement_mixing_input
         timeout: never
@@ -183,128 +183,10 @@ speaker:
 
 switch:
   - platform: gpio
-    pin: GPIO11
-    name: "Audio Amplifier"
     id: audio_amplifier
-    restore_mode: ALWAYS_OFF
+    name: Speaker Enable
+    icon: "mdi:speaker"
+    entity_category: config
+    pin: GPIO11
+    restore_mode: RESTORE_DEFAULT_ON
 
-media_player:
-  - platform: speaker
-    name: "ESP32 P4 Media Player"
-    id: speaker_media_player
-    codec_support_enabled: true
-    volume_min: 0.5
-    volume_max: 0.75
-    volume_increment: 0.05
-    volume_initial: 0.6
-    announcement_pipeline:
-      speaker: announcement_resampling_speaker
-      format: FLAC
-      sample_rate: 48000
-      num_channels: 1
-    media_pipeline:
-      speaker: media_resampling_speaker
-      format: FLAC
-      num_channels: 1
-      sample_rate: 48000
-    on_announcement:
-      - if:
-          condition:
-            - microphone.is_capturing:
-          then:
-            - micro_wake_word.stop
-            - voice_assistant.stop
-      - mixer_speaker.apply_ducking:
-          id: media_mixing_input
-          decibel_reduction: 20
-          duration: 0.0s
-      - switch.turn_on: audio_amplifier
-      - delay: 100ms
-    on_state:
-      if:
-        condition:
-          and:
-            - not:
-                voice_assistant.is_running:
-            - not:
-                media_player.is_announcing:
-        then:
-          - mixer_speaker.apply_ducking:
-              id: media_mixing_input
-              decibel_reduction: 0
-              duration: 1.0s
-    on_play:
-      - logger.log: "Media player started playing, disabling microphone"
-      - switch.turn_on: audio_amplifier
-      - delay: 100ms
-      - micro_wake_word.stop
-      - voice_assistant.stop
-    on_idle:
-      - delay: 100ms
-      - switch.turn_off: audio_amplifier
-      - if:
-          condition:
-            not:
-              voice_assistant.is_running:
-          then:
-            - micro_wake_word.start
-
-sensor:
-  - platform: template
-    name: "Voice Assistant State"
-    lambda: |-
-      if (id(esp32_microphone).is_running()) {
-        return 1;
-      } else {
-        return 0;
-      }
-    update_interval: 2s
-
-text_sensor:
-  - platform: template
-    name: "Voice Assistant Status"
-    id: voice_status
-    update_interval: 5s
-    lambda: |-
-      if (id(esp32_microphone).is_running()) {
-        return {"Listening"};
-      } else {
-        return {"Idle"};
-      }
-
-micro_wake_word:
-  id: my_wake_word
-  models:
-    - model: alexa
-  on_wake_word_detected:
-    then:
-      - logger.log: "Wake word detected"
-      - voice_assistant.start:
-          wake_word: !lambda return wake_word;
-
-voice_assistant:
-  microphone: esp32_microphone
-  media_player: speaker_media_player
-  micro_wake_word: my_wake_word
-  noise_suppression_level: 2
-  auto_gain: 31dBFS
-  volume_multiplier: 2.0
-  conversation_timeout: 300s
-  on_end:
-    # Wait a short amount of time to see if an announcement starts
-    - wait_until:
-        condition:
-          - media_player.is_announcing:
-        timeout: 0.5s
-    # Announcement is finished and the I2S bus is free
-    - wait_until:
-        - and:
-            - not:
-                media_player.is_announcing:
-            - not:
-                media_player.is_playing:
-    - micro_wake_word.start:
-  on_client_connected:
-    - micro_wake_word.start:
-  on_client_disconnected:
-    - micro_wake_word.stop:
