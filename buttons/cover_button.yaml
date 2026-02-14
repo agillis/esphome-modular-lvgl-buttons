@@ -1,0 +1,171 @@
+
+---
+# Cover position button with optional slider
+# Short pressing the button toggles the cover
+# Long pressing the button stops the cover
+# Setting the slider works with position based sensors (% open).
+# The icon color changes to the target state when in transit (opening / closing).
+# The button color changes to the actual state when stationary (open / closed).
+# Works with state based covers: open/opening/closing/closed
+# The slider only works with position based covers: % open
+# TODO: Make binary covers operate by manipulating the slider - suggest hiding the slider until fixed.
+# vars:
+#    uid:
+#    row:
+#    column:
+#    row_span:
+#    column_span:
+#    text:
+#    icon:
+#    entity_id:
+#    hide_slider: # Set to "true" to hide. Default "false".
+
+lvgl:
+  pages:
+    - id: !extend main_page
+      widgets:
+        - container:
+            id: ${uid}
+            grid_cell_row_pos: ${row}
+            grid_cell_column_pos: ${column}
+            grid_cell_row_span: ${row_span | default(1)}
+            grid_cell_column_span: ${column_span | default(1)}
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            widgets:
+              - button:
+                  id: button_${uid}
+                  widgets:
+                    - label:
+                        id: icon_${uid}
+                        text_font: $icon_font
+                        align: top_left
+                        text: ${icon}
+                    - label:
+                        id: label_${uid}
+                        align: bottom_left
+                        text: ${text}
+                    - slider:
+                        id: slider_${uid}
+                        hidden: ${hide_slider | default("false")}
+                        align: top_right
+                        x: -5
+                        y: 10
+                        width: 30%
+                        height: 75%
+                        min_value: 0
+                        max_value: 100
+                        radius: 10
+                        knob:
+                          pad_top: -5
+                          pad_bottom: -5
+                          bg_color: $label_off_color
+                        indicator:
+                          radius: 0
+                          bg_color: $label_off_color
+                        on_release:
+                          - homeassistant.action:
+                              action: cover.set_cover_position
+                              data:
+                                entity_id: ${entity_id}
+                                position: !lambda return int(x);
+                  on_short_click:
+                    then:
+                      - homeassistant.action:
+                          action: cover.toggle
+                          data:
+                            entity_id: ${entity_id}
+                  on_long_press:
+                    then:
+                      - homeassistant.action:
+                          action: cover.stop_cover
+                          data:
+                            entity_id: ${entity_id}
+                
+text_sensor:
+  - platform: homeassistant
+    id: ha_state_${uid}
+    entity_id: ${entity_id}
+    internal: true
+    on_value:
+      - if:
+          condition:
+            lambda: 'return x == "open";'
+          then:
+            - lvgl.widget.update:
+                id: button_${uid}
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: icon_${uid}
+                text_color: $icon_on_color
+            - lvgl.widget.update:
+                id: label_${uid}
+                text_color: $label_on_color
+      - if:
+          condition:
+            lambda: 'return x == "opening";'
+          then:
+            - lvgl.widget.update:
+                id: button_${uid}
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: icon_${uid}
+                text_color: $icon_on_color
+            - lvgl.widget.update:
+                id: label_${uid}
+                text_color: $label_off_color
+      - if:
+          condition:
+            lambda: 'return x == "closing";'
+          then:
+            - lvgl.widget.update:
+                id: button_${uid}
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: icon_${uid}
+                text_color: $icon_off_color
+            - lvgl.widget.update:
+                id: label_${uid}
+                text_color: $label_on_color
+      - if:
+          condition:
+            lambda: 'return x == "closed";'
+          then:
+            - lvgl.widget.update:
+                id: button_${uid}
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: icon_${uid}
+                text_color: $icon_off_color
+            - lvgl.widget.update:
+                id: label_${uid}
+                text_color: $label_off_color
+
+sensor:
+  - platform: homeassistant
+    id: ha_pos_${uid}
+    entity_id: ${entity_id}
+    attribute: current_position
+    internal: true
+    filters:
+      - filter_out: nan
+
+  - platform: template
+    id: position_${uid}
+    unit_of_measurement: "%"
+    update_interval: 1s
+    lambda: |-
+      if (lv_obj_has_flag(id(slider_${uid}), LV_OBJ_FLAG_HIDDEN)) return NAN;
+      float attr_pos = id(ha_pos_${uid}).state;
+      std::string state = id(ha_state_${uid}).state;
+      if (!isnan(attr_pos)) return attr_pos;
+      if (state == "open" || state == "opening") return 100.0f;
+      return 0.0f;
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !lv_obj_has_flag(id(slider_${uid}), LV_OBJ_FLAG_HIDDEN);'
+          then:
+            - lvgl.slider.update:
+                id: slider_${uid}
+                value: !lambda return x;
