@@ -52,6 +52,7 @@ A modular library for building beautiful, touch-enabled control panels using ESP
 | `ESP32-S3-Touch-LCD-7B` | 7.0" | 800×480 | 16MB | Capacitive | Variant B with different touch IC, USB-C | [Waveshare](https://www.waveshare.com/esp32-s3-touch-lcd-7b.htm) |
 | `ESP32-S3-Touch-LCD-4.3` | 4.3" | 800×480 | 16MB | Capacitive | USB-C | [Waveshare](https://www.waveshare.com/esp32-s3-touch-lcd-4.3.htm) |
 | `ESP32-S3-Touch-LCD-2.8C` | 2.8" | 320×240 | 16MB | Capacitive | USB-C, compact form factor | [Waveshare](https://www.waveshare.com/esp32-s3-touch-lcd-2.8.htm) |
+| `ESP32-S3-Touch-LCD-3.5B` | 3.5" | 320×480 | 8MB | Capacitive | USB-C | [Waveshare](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.5B) |
 | `ESP32-P4-WiFi6-Touch-LCD-7B` | 7.0" | 1024×600 | 32MB | Capacitive | speaker, mic, USB-C | [Waveshare](https://www.waveshare.com/esp32-p4-touch-lcd-7b.htm) |
 | `ESP32-P4-WiFi6-Touch-LCD-10.1` | 10.1" | 800×1280 | 32MB | Capacitive |  speaker, mic, USB-C | [Waveshare](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-10.1.htm) |
 | `ESP32-P4-86-Panel` | 4.0" | 480×480 | 32MB | Capacitive | speaker, mic, 86mm panel form factor | [Waveshare](https://www.waveshare.com/esp32-p4-nano.htm) |
