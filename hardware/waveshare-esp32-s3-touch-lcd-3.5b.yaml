@@ -73,7 +73,7 @@ display:
     rotation: 90
     color_order: rgb
     cs_pin: GPIO12      # LCD_CS
-    # FIXME TO TEST: reset pin should be avail via GPIO expander pin 1
+    # FIXME TO TEST: reset pin should be avail via GPIO port expander pin 1
     #reset_pin:
 
 # I2C configuration for AXS15231B touch controller
@@ -99,7 +99,7 @@ touchscreen:
 
     # FIXME TO TEST: the interrupt line for the touch screen should enable
     # better/faster touch interaction. The Interrupt line for touch controller
-    # should be avail under the pin 2 of the pro expander
+    # should be avail via GPIO port expander pin 2
     update_interval: 10ms    # Poll touchscreen every 10ms (100 Hz)
 
     # this "transform" block is required to "align" the touch interface
