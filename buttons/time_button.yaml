@@ -2,6 +2,7 @@
 # Change page button
 # vars:
 #    uid:
+#    page_id:
 #    row:
 #    column:
 #    row_span:
@@ -11,7 +12,7 @@
 # This section add a button to LVGL page main_page
 lvgl:
   pages:
-    - id: !extend main_page
+    - id: !extend ${page_id | default("main_page")}
       widgets:
         - container:
               id: ${uid}

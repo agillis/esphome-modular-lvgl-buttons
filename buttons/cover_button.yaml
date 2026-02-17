@@ -11,6 +11,7 @@
 # TODO: Make binary covers operate by manipulating the slider - suggest hiding the slider until fixed.
 # vars:
 #    uid:
+#    page_id:
 #    row:
 #    column:
 #    row_span:
@@ -22,7 +23,7 @@
 
 lvgl:
   pages:
-    - id: !extend main_page
+    - id: !extend ${page_id | default("main_page")}
       widgets:
         - container:
             id: ${uid}

@@ -2,6 +2,7 @@
 # Switch toggle button
 # vars:
 #    uid:
+#    page_id:
 #    row:
 #    column:
 #    row_span:
@@ -12,7 +13,7 @@
 
 lvgl:
   pages:
-    - id: !extend main_page
+    - id: !extend ${page_id | default("main_page")}
       widgets:
         - container:
             id: ${uid}
