@@ -5,8 +5,8 @@
 
 substitutions:
   # Screen Size
-  screen_height: 1200
-  screen_width: 800
+  screen_height: 1024
+  screen_width: 600
 
 esphome:
   min_version: 2026.1.0
