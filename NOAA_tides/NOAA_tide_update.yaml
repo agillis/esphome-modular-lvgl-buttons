@@ -6,34 +6,31 @@
 #
 # NOAA API: https://api.tidesandcurrents.noaa.gov/api/prod/
 #
-# Required substitutions (define in your main config):
+# Required vars:
 #   noaa_station_id: Your NOAA station ID (e.g., "9414290" for San Francisco)
 #                    Find yours at: https://tidesandcurrents.noaa.gov/map/
 #
-# Optional substitutions:
+# Optional vars:
 #   noaa_unit_system: "english" or "metric" (default: "english")
+#   noaa_unit_label: Display unit label, "ft" or "m" (default: "ft")
 #
 # Note: ESP32 timezone should match the NOAA station's timezone for
 #       correct local time display. Epoch comparisons are timezone-safe.
 #
 # Usage in your main config:
-#   substitutions:
-#     noaa_station_id: "9414290"
-#     noaa_unit_system: "english"
 #   packages:
-#     noaa_tides: !include esphome-modular-lvgl-buttons/NOAA_tides/NOAA_tide_update.yaml
+#     tide_info: !include
+#       file: esphome-modular-lvgl-buttons/NOAA_tides/NOAA_tide_update.yaml
+#       vars:
+#         noaa_station_id: "9414290"
+#         noaa_unit_system: "english"   # or "metric"
+#         noaa_unit_label: "ft"         # or "m"
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Provide defaults for optional substitutions
-substitutions:
+# Defaults for optional vars (used when not provided by the caller)
+defaults:
   noaa_unit_system: english
-
-# -------------------------------------------
-# HTTP Request Component
-# -------------------------------------------
-http_request:
-  useragent: "ESPHome/NOAA-Tides"
-  timeout: 10s
+  noaa_unit_label: ft
 
 # -------------------------------------------
 # Global Variables
@@ -59,15 +56,15 @@ globals:
 image:
   rgb565:
     alpha_channel:
-      - file: esphome-modular-lvgl-buttons/tides/assets/images/tide_pointer.svg
+      - file: esphome-modular-lvgl-buttons/NOAA_tides/assets/images/tide_pointer.svg
         id: tide_pointer
         resize: 200x88
 
-      - file: esphome-modular-lvgl-buttons/tides/assets/images/high_tide.svg
+      - file: esphome-modular-lvgl-buttons/NOAA_tides/assets/images/high_tide.svg
         id: high_tide
         resize: 29x32
 
-      - file: esphome-modular-lvgl-buttons/tides/assets/images/low_tide.svg
+      - file: esphome-modular-lvgl-buttons/NOAA_tides/assets/images/low_tide.svg
         id: low_tide
         resize: 29x32
 
@@ -101,14 +98,9 @@ sensor:
       if (ratio < 0.0f) ratio = 0.0f;
       if (ratio > 1.0f) ratio = 1.0f;
 
-      // Match logic from custom_components/noaa_tides/sensor.py
-      if (id(noaa_next_tide_is_high)) {
-        // Heading toward high tide: percentage goes 50 → 100
-        return (ratio * 50.0f) + 50.0f;
-      } else {
-        // Heading toward low tide: percentage goes 0 → 50
-        return ratio * 50.0f;
-      }
+      // 0→50 = heading to low tide, 50→100 = heading to high tide
+      float base = id(noaa_next_tide_is_high) ? 50.0f : 0.0f;
+      return base + (ratio * 50.0f);
     on_value:
       then:
         - lvgl.indicator.update:
@@ -116,96 +108,74 @@ sensor:
             value: !lambda "return id(tide_percentage).state;"
 
   - platform: template
-    name: "Next Tide Level"
-    id: next_tide_level
+    name: "High Tide Level"
+    id: high_tide_level
     accuracy_decimals: 2
+    update_interval: never
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: high_tide_height
+            text:
+              format: "%.2f ${noaa_unit_label}"
+              args: ['id(high_tide_level).state']
+
+  - platform: template
+    name: "Low Tide Level"
+    id: low_tide_level
+    accuracy_decimals: 2
+    update_interval: never
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: low_tide_height
+            text:
+              format: "%.2f ${noaa_unit_label}"
+              args: ['id(low_tide_level).state']
+
+  # Mean High Water and Mean Low Water (relative to MLLW datum)
+  # Fetched once on boot from NOAA Metadata API - these values rarely change
+  - platform: template
+    name: "Mean High Water"
+    id: mean_high_water
+    accuracy_decimals: 2
+    unit_of_measurement: "${noaa_unit_label}"
     update_interval: never
 
   - platform: template
-    name: "Last Tide Level"
-    id: last_tide_level
+    name: "Mean Low Water"
+    id: mean_low_water
     accuracy_decimals: 2
+    unit_of_measurement: "${noaa_unit_label}"
     update_interval: never
 
 # -------------------------------------------
-# Text Sensors (Template - populated from NOAA API)
+# Text Sensors
 # -------------------------------------------
 text_sensor:
   - platform: template
-    name: "Next Tide Type"
-    id: next_tide_type
-    update_interval: never
-
-  - platform: template
-    name: "Next Tide Time"
-    id: next_tide_time
+    name: "High Tide Time"
+    id: high_tide_time_sensor
     update_interval: never
     on_value:
-      - if:
-          condition:
-            text_sensor.state:
-              id: next_tide_type
-              state: 'Low'
-          then:
-            - lvgl.label.update:
-                id: low_tide_label
-                text:
-                  format: "%s"
-                  args: ['id(next_tide_time).state.c_str()']
-            - lvgl.label.update:
-                id: low_tide_height
-                text:
-                  format: "%.2f %s"
-                  args: ['id(next_tide_level).state', '(strcmp("${noaa_unit_system}", "metric") == 0) ? "m" : "ft"']
-          else:
-            - lvgl.label.update:
-                id: high_tide_label
-                text:
-                  format: "%s"
-                  args: ['id(next_tide_time).state.c_str()']
-            - lvgl.label.update:
-                id: high_tide_height
-                text:
-                  format: "%.2f %s"
-                  args: ['id(next_tide_level).state', '(strcmp("${noaa_unit_system}", "metric") == 0) ? "m" : "ft"']
+      then:
+        - lvgl.label.update:
+            id: high_tide_label
+            text:
+              format: "%s"
+              args: ['id(high_tide_time_sensor).state.c_str()']
 
   - platform: template
-    name: "Last Tide Type"
-    id: last_tide_type
-    update_interval: never
-
-  - platform: template
-    name: "Last Tide Time"
-    id: last_tide_time
+    name: "Low Tide Time"
+    id: low_tide_time_sensor
     update_interval: never
     on_value:
-      - if:
-          condition:
-            text_sensor.state:
-              id: last_tide_type
-              state: 'Low'
-          then:
-            - lvgl.label.update:
-                id: low_tide_label
-                text:
-                  format: "%s"
-                  args: ['id(last_tide_time).state.c_str()']
-            - lvgl.label.update:
-                id: low_tide_height
-                text:
-                  format: "%.2f %s"
-                  args: ['id(last_tide_level).state', '(strcmp("${noaa_unit_system}", "metric") == 0) ? "m" : "ft"']
-          else:
-            - lvgl.label.update:
-                id: high_tide_label
-                text:
-                  format: "%s"
-                  args: ['id(last_tide_time).state.c_str()']
-            - lvgl.label.update:
-                id: high_tide_height
-                text:
-                  format: "%.2f %s"
-                  args: ['id(last_tide_level).state', '(strcmp("${noaa_unit_system}", "metric") == 0) ? "m" : "ft"']
+      then:
+        - lvgl.label.update:
+            id: low_tide_label
+            text:
+              format: "%s"
+              args: ['id(low_tide_time_sensor).state.c_str()']
 
 # -------------------------------------------
 # Scripts
@@ -216,7 +186,75 @@ script:
     then:
       # Delay to avoid colliding with other action calls at startup
       - delay: 5s
+      - script.execute: fetch_noaa_datums
       - script.execute: fetch_noaa_tides
+
+  # Fetch tidal datums (MLW, MHW) from NOAA Metadata API
+  # These are station constants that don't change, so only fetched once on boot.
+  # Values are converted from station datum (STND) to MLLW to match predictions.
+  # API docs: https://api.tidesandcurrents.noaa.gov/mdapi/prod/
+  - id: fetch_noaa_datums
+    then:
+      - logger.log:
+          level: INFO
+          format: "Fetching NOAA tidal datums for station ${noaa_station_id}..."
+      - http_request.get:
+          capture_response: true
+          max_response_buffer_size: 3072
+          url: "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/${noaa_station_id}/datums.json?units=${noaa_unit_system}"
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    ESP_LOGE("noaa", "NOAA Datums API returned HTTP %d", response->status_code);
+                    return;
+                  }
+                  if (body.length() == 0) {
+                    ESP_LOGE("noaa", "Empty response from NOAA Datums API");
+                    return;
+                  }
+
+                  ESP_LOGD("noaa", "Got %d bytes from NOAA Datums API", body.length());
+
+                  // Parse JSON: {"datums": [{"name": "MHW", "value": 8.78}, ...]}
+                  // Values are relative to station datum (STND).
+                  // Subtract MLLW to convert to the same datum used by tide predictions.
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                    if (!root["datums"].is<JsonArray>()) {
+                      ESP_LOGE("noaa", "Datums response missing 'datums' key");
+                      return false;
+                    }
+
+                    JsonArray datums = root["datums"];
+                    float mllw = NAN, mlw = NAN, mhw = NAN;
+
+                    for (JsonObject datum : datums) {
+                      const char* name = datum["name"];
+                      if (!name) continue;
+                      float val = datum["value"].as<float>();
+
+                      if (strcmp(name, "MLLW") == 0) mllw = val;
+                      else if (strcmp(name, "MLW") == 0) mlw = val;
+                      else if (strcmp(name, "MHW") == 0) mhw = val;
+                    }
+
+                    if (std::isnan(mllw) || std::isnan(mlw) || std::isnan(mhw)) {
+                      ESP_LOGE("noaa", "Could not find required datums (MLLW/MLW/MHW)");
+                      return false;
+                    }
+
+                    // Convert from station datum to MLLW datum
+                    float mlw_mllw = mlw - mllw;
+                    float mhw_mllw = mhw - mllw;
+
+                    id(mean_low_water).publish_state(mlw_mllw);
+                    id(mean_high_water).publish_state(mhw_mllw);
+
+                    ESP_LOGI("noaa", "Tidal datums (relative to MLLW): MLW=%.2f, MHW=%.2f",
+                      mlw_mllw, mhw_mllw);
+
+                    return true;
+                  });
 
   # Main script: Fetch tide predictions from NOAA CO-OPS API
   - id: fetch_noaa_tides
@@ -259,8 +297,8 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        if (status_code != 200) {
-                          ESP_LOGE("noaa", "NOAA API returned HTTP %d", status_code);
+                        if (response->status_code != 200) {
+                          ESP_LOGE("noaa", "NOAA API returned HTTP %d", response->status_code);
                           return;
                         }
                         if (body.length() == 0) {
@@ -273,7 +311,7 @@ script:
                         // Parse the NOAA JSON response
                         // Format: {"predictions": [{"t":"YYYY-MM-DD HH:MM", "v":"1.234", "type":"H"}, ...]}
                         json::parse_json(body, [](JsonObject root) -> bool {
-                          if (!root.containsKey("predictions")) {
+                          if (!root["predictions"].is<JsonArray>()) {
                             ESP_LOGE("noaa", "Response missing 'predictions' key - check station ID");
                             return false;
                           }
@@ -292,19 +330,16 @@ script:
                           time_t best_last_epoch = 0;
                           float best_last_level = 0;
                           bool best_last_is_high = false;
-                          std::string best_last_time_str;
 
                           time_t best_next_epoch = 0;
                           float best_next_level = 0;
                           bool best_next_is_high = false;
-                          std::string best_next_time_str;
                           bool found_next = false;
 
                           for (JsonObject prediction : predictions) {
-                            const char* t = prediction["t"];       // "YYYY-MM-DD HH:MM"
-                            const char* v = prediction["v"];       // Water level string
-                            const char* type_str = prediction["type"];  // "H" or "L"
-
+                            const char* t = prediction["t"];
+                            const char* v = prediction["v"];
+                            const char* type_str = prediction["type"];
                             if (!t || !v || !type_str) continue;
 
                             // Parse time: "YYYY-MM-DD HH:MM"
@@ -319,37 +354,22 @@ script:
                             tm_time.tm_mday = dy;
                             tm_time.tm_hour = hr;
                             tm_time.tm_min = mn;
-                            tm_time.tm_sec = 0;
-                            tm_time.tm_isdst = -1;  // Let mktime determine DST
+                            tm_time.tm_isdst = -1;
                             time_t pred_epoch = mktime(&tm_time);
 
                             float level = atof(v);
                             bool is_high = (strcmp(type_str, "H") == 0);
 
-                            // Format display time: "10:58 AM" (strip leading zero)
-                            char time_buf[16];
-                            strftime(time_buf, sizeof(time_buf), "%I:%M %p", &tm_time);
-                            std::string formatted_time;
-                            if (time_buf[0] == '0') {
-                              formatted_time = std::string(time_buf + 1);
-                            } else {
-                              formatted_time = std::string(time_buf);
-                            }
-
                             if (pred_epoch <= now_epoch) {
-                              // Past or current tide - keep the most recent one
                               if (pred_epoch > best_last_epoch) {
                                 best_last_epoch = pred_epoch;
                                 best_last_level = level;
                                 best_last_is_high = is_high;
-                                best_last_time_str = formatted_time;
                               }
                             } else if (!found_next) {
-                              // First future tide
                               best_next_epoch = pred_epoch;
                               best_next_level = level;
                               best_next_is_high = is_high;
-                              best_next_time_str = formatted_time;
                               found_next = true;
                             }
                           }
@@ -359,28 +379,39 @@ script:
                             return false;
                           }
 
-                          // Store epochs for ongoing tide_percentage calculation
+                          // Store epochs for tide_percentage calculation
                           id(noaa_last_tide_epoch) = best_last_epoch;
                           id(noaa_next_tide_epoch) = best_next_epoch;
                           id(noaa_next_tide_is_high) = best_next_is_high;
 
-                          // Publish to template sensors
-                          std::string last_type = best_last_is_high ? "High" : "Low";
-                          std::string next_type = best_next_is_high ? "High" : "Low";
+                          // Format epoch to "10:58 AM" (strip leading zero)
+                          auto fmt_time = [](time_t epoch) -> std::string {
+                            struct tm tm;
+                            localtime_r(&epoch, &tm);
+                            char buf[16];
+                            strftime(buf, sizeof(buf), "%I:%M %p", &tm);
+                            return std::string(buf[0] == '0' ? buf + 1 : buf);
+                          };
 
-                          id(last_tide_type).publish_state(last_type);
-                          id(next_tide_type).publish_state(next_type);
-                          id(last_tide_time).publish_state(best_last_time_str);
-                          id(next_tide_time).publish_state(best_next_time_str);
-                          id(last_tide_level).publish_state(best_last_level);
-                          id(next_tide_level).publish_state(best_next_level);
+                          // Publish to high/low sensors (on_value triggers LVGL updates)
+                          if (best_next_is_high) {
+                            id(high_tide_level).publish_state(best_next_level);
+                            id(low_tide_level).publish_state(best_last_level);
+                            id(high_tide_time_sensor).publish_state(fmt_time(best_next_epoch));
+                            id(low_tide_time_sensor).publish_state(fmt_time(best_last_epoch));
+                          } else {
+                            id(low_tide_level).publish_state(best_next_level);
+                            id(high_tide_level).publish_state(best_last_level);
+                            id(low_tide_time_sensor).publish_state(fmt_time(best_next_epoch));
+                            id(high_tide_time_sensor).publish_state(fmt_time(best_last_epoch));
+                          }
 
-                          ESP_LOGI("noaa", "Last tide: %s at %s (%.2f)",
-                            last_type.c_str(), best_last_time_str.c_str(), best_last_level);
-                          ESP_LOGI("noaa", "Next tide: %s at %s (%.2f)",
-                            next_type.c_str(), best_next_time_str.c_str(), best_next_level);
+                          ESP_LOGI("noaa", "Last tide: %s at %ld (%.2f)",
+                            best_last_is_high ? "High" : "Low", (long)best_last_epoch, best_last_level);
+                          ESP_LOGI("noaa", "Next tide: %s at %ld (%.2f)",
+                            best_next_is_high ? "High" : "Low", (long)best_next_epoch, best_next_level);
 
-                          // Force immediate tide percentage recalculation
+                          // Recalculate tide percentage
                           id(tide_percentage).update();
 
                           return true;

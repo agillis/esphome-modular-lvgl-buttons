@@ -28,9 +28,8 @@ substitutions:
   screen_night_minute: '0'
 
   # Screen Size
-  screen_height: '400'
+  screen_height: '480'
   screen_width: '800'
-
 
 esphome:
   name: "tideweather"
@@ -43,6 +42,18 @@ esphome:
 logger:
   level: debug
 
+api:
+  on_client_connected:
+    - script.execute: time_update
+
+time:
+  - platform: homeassistant
+    id: system_time
+    
+http_request:
+  useragent: "ESPHome"
+  # You need this cert for SDL
+  ca_certificate_path: /etc/ssl/certs/ca-certificates.crt    
 
 packages:
   # Generic configuration for ESP32 screens
@@ -66,7 +77,11 @@ packages:
   info_screen: !include esphome-modular-lvgl-buttons/pages/info.yaml
 
   # Tide forcast packages
-  tides: !include esphome-modular-lvgl-buttons/tides/tide_update.yaml
+  tide_info: !include
+    file: esphome-modular-lvgl-buttons/NOAA_tides/NOAA_tide_update.yaml
+    vars:
+      noaa_station_id: "8454578"
+      noaa_unit_system: english
 
   # Weather packages
   # Display weather forecast using direct HA action (no template sensor needed!)
@@ -81,6 +96,8 @@ packages:
     file: esphome-modular-lvgl-buttons/weather_homeassistant/weather_today.yaml
     vars:
       size: 200
+      weather_entity: weather.home
+      weather_summary: sensor.home_hourly_summary
 
 # Styles for Weather forcast
 .forcast_styles:
@@ -191,7 +208,7 @@ lvgl:
                       width: 320
                       height: 90
                       text: "Generic weather forecast: Weather will be lovely today. Very Sunny. You will love it."
-                      id: weather_condition_today
+                      id: weather_summary_today
                       long_mode: wrap
                       scrollable: true
                       text_font: nunito_20
