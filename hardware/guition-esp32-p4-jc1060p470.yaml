@@ -5,8 +5,8 @@
 
 substitutions:
   # Screen Size
-  screen_height: 1024
-  screen_width: 600
+  screen_height: 600
+  screen_width: 1024
 
 esphome:
   min_version: 2026.1.0
@@ -62,6 +62,10 @@ output:
   - id: gpio_backlight_pwm
     platform: ledc
     pin: GPIO23
+      #    frequency: 100Hz
+      #    inverted: false
+    #min_power: 0.1 # To prevent the backlight from being too dim
+    #    max_power: 0.8 # To prevent overheating due to excessive lighting
 
 light:
   - platform: monochromatic
@@ -73,6 +77,14 @@ light:
     default_transition_length: 0s
     gamma_correct: 1.0
 
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    rgb_order: GRB
+    chipset: ws2812
+    pin: GPIO26
+    num_leds: 1
+    name: "Status LED"
+
 # -------------------------------------------
 # i2c bus
 # -------------------------------------------
@@ -80,7 +92,6 @@ i2c:
   - id: bus_a
     sda: GPIO7
     scl: GPIO8
-    scan: true
     frequency: 400kHz
 
 # -------------------------------------------
@@ -89,8 +100,9 @@ i2c:
 touchscreen:
   - platform: gt911
     id: my_touchscreen
-    # reset_pin: GPIO23  # Shared with backlight
+    reset_pin: GPIO22
     interrupt_pin: GPIO21
+    address: 0x5D
 #   on_touch:
 #     - logger.log:
 #           format: Touch at (%d, %d)
@@ -110,14 +122,15 @@ display:
   - platform: mipi_dsi
     model: JC1060P470
     id: my_display
-    update_interval: 17ms
-    reset_pin:
-      number: GPIO05
+    update_interval: never
+    reset_pin: GPIO27
     hsync_pulse_width: 20
+
 
 # Special LVGL settings required for this display
 lvgl:
   byte_order: little_endian
+  buffer_size: 100%
 
 # -------------------------------------------
 # Audio - speaker/mic
@@ -131,20 +144,23 @@ i2s_audio:
 audio_dac:
   - platform: es8311
     id: es8311_dac
+    bits_per_sample: 16bit
     i2c_id: bus_a
     address: 0x18
 
 audio_adc:
   - platform: es7210
     id: es7210_adc
+    bits_per_sample: 16bit
     i2c_id: bus_a
-    address: 0x36
+    address: 0x32
+    sample_rate: 16000
 
 microphone:
   - platform: i2s_audio
     id: my_microphone
     i2s_audio_id: audio_bus
-    i2s_din_pin: GPIO48
+    i2s_din_pin: GPIO11
     sample_rate: 16000
     bits_per_sample: 16bit
     adc_type: external
@@ -188,5 +204,5 @@ switch:
     name: Speaker Enable
     icon: "mdi:speaker"
     entity_category: config
-    pin: GPIO11
+    pin: GPIO20
     restore_mode: RESTORE_DEFAULT_ON
