@@ -1,0 +1,349 @@
+---
+pages:
+  - id: ${page_0}
+    layout: 4x7
+    styles: page_style
+    <<: !include ../widgets/swipe_navigation.yaml
+    widgets:
+        - container: # Button 0 (Active)
+            id: ${page_0}_0
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: black
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: white
+                  text: ${page_0_title}       
+        - container: # Button 1 -> Link
+            id: ${page_0}_1
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_1_title}  
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_1}      
+        - container: # Button 2 -> Link
+            id: ${page_0}_2
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 2
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_2_title}  
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_2}      
+        - container: # Button 3 -> Link
+            id: ${page_0}_3
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_3_title}  
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_3}     
+  - id: ${page_1}
+    layout: 4x7
+    styles: page_style
+    <<: !include ../widgets/swipe_navigation.yaml
+    widgets:
+        # You can use the package section above to add prebuilt button types or build your own custom button from scratch here.
+        - container: # Button 0 -> Link
+            id: ${page_1}_0
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_0_title} 
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_0}
+        - container: # Button 1 (Active)
+            id: ${page_1}_1
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: black
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: white
+                  text: ${page_1_title} 
+        - container:
+            id: ${page_1}_2 # Button 2 -> Link
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 2
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_2_title} 
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_2}
+        - container: # Button 3 -> Link
+            id: ${page_1}_3
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_3_title} 
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_3}
+  - id: ${page_2}
+    layout: 4x7
+    styles: page_style
+    <<: !include ../widgets/swipe_navigation.yaml
+    widgets:
+        # You can use the package section above to add prebuilt button types or build your own custom button from scratch here.
+        - container: # Button 0 -> Link
+            id: ${page_2}_0
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_0_title} 
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_0}
+        - container: # Button 1 -> Link
+            id: ${page_2}_1
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_1_title} 
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_1}
+        - container: # Button 2 (Active)
+            id: ${page_2}_2
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 2
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: black
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: white
+                  text: ${page_2_title} 
+        - container: # Button 3 -> Link
+            id: ${page_2}_3
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_3_title} 
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_3}
+  - id: ${page_3}
+    layout: 4x7
+    styles: page_style
+    <<: !include ../widgets/swipe_navigation.yaml
+    widgets:
+        # You can use the package section above to add prebuilt button types or build your own custom button from scratch here.
+        - container: # Button 0 -> Link
+            id: ${page_3}_0
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_0_title} 
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_0}
+        - container: # Button 1 -> Link
+            id: ${page_3}_1
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_1_title}
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_1}
+        - container: # Button 2 -> Link
+            id: ${page_3}_2
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 2
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: white
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: black
+                  text: ${page_2_title}
+            on_short_click:
+                then:
+                  lvgl.page.show: ${page_2}
+        - container: # Button 3 (Active)
+            id: ${page_3}_3
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            #outline_width: 1   # debug code - This is for visualizing boundries remove for production
+            #outline_color: red # debug code - This is for visualizing boundries remove for production
+            bg_color: black
+            bg_opa: cover
+            widgets:
+              - label:
+                  text_font: $text_font
+                  align: center
+                  text_color: white
+                  text: ${page_3_title} 
