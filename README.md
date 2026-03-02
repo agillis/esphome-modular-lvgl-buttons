@@ -31,7 +31,7 @@ A modular library for building beautiful, touch-enabled control panels using ESP
 | `ESP32-jc4827w543C` | 4.3" | 272×480 | 4MB | Capacitive | speaker, 4MB flash keep you code small| [AliExpress](https://www.aliexpress.com/item/3256806543342794.html) |
 | `ESP32-P4-JC4880P443` | 4.3" | 480×800 | 16MB | Capacitive | ESP32-P4 based, speaker, mic, USB-C | [AliExpress](https://www.aliexpress.com/item/3256809431944589.html) |
 | `ESP32-P4-JC1060P470` | 7" | 1024×600 | 16MB | Capacitive | ESP32-P4 based, USB-C | [surenoo.com](https://www.surenoo.com/products/23507762) |
-| `ESP32&#x2011P4&#x2011JC8012P4A1` | 8.0" | 800×1280 | 16MB | Capacitive | ESP32-P4 based, USB-C | [AliExpress](https://www.aliexpress.com/item/3256808075855498.html) |
+| `ESP32-P4-JC8012P4A1` | 8.0" | 800×1280 | 16MB | Capacitive | ESP32-P4 based, USB-C | [AliExpress](https://www.aliexpress.com/item/3256808075855498.html) |
 
 ### Sunton Displays
 
