@@ -13,13 +13,13 @@ substitutions:
   label_off_color: "gray"
   button_text_color: "white"
 
-  # LCD back light modes - Code in backlight_time.yaml
-   display_daytime_brightness: "100%"
-   display_nighttime_brightness: "50%"
-   display_night_hour: "0"      # Hour for night mode (0-23)
-   display_night_minute: "0"    # Minute for night mode (0-59)
-   display_backlight_timeout_always_enabled: "false"  # Set true to dim/off in all modes, not just Night
-   display_backlight_timeout_initial: "5"  # Initial backlight timeout in minutes (-1 to disable)
+# LCD back light modes - Code in backlight_time.yaml
+ display_daytime_brightness: "100%"
+ display_nighttime_brightness: "50%"
+ display_night_hour: "0"      # Hour for night mode (0-23)
+ display_night_minute: "0"    # Minute for night mode (0-59)
+ display_backlight_timeout_always_enabled: "false"  # Set true to dim/off in all modes, not just Night
+ display_backlight_timeout_initial: "5"  # Initial backlight timeout in minutes (-1 to disable)
 
 esphome:
   name: "waveshare-esp32-p4-86-panel"
