@@ -47,7 +47,4 @@ esphome config example_code/SDL-lvgl-display_modular_480px.yaml
 
 ## Known Issues
 
-- Cover button slider broken for binary (non-position) covers
-- `time_button.yaml` hardcodes `time_label` ID — only one per device
-- Loading page only exists for 480px displays
 - `shadow_width: 0` must be explicitly set in theme despite LVGL default
