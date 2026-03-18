@@ -1,0 +1,186 @@
+# Hardware configuration file for Waveshare ESP32-P4-WIFI6-Touch-LCD-4B 720px x 720px touchscreen
+# https://www.waveshare.com/wiki/ESP32-P4-WIFI6-Touch-LCD-4B
+#
+# Differences from waveshare-esp32-p4-86-panel.yaml:
+#   - Relay outputs removed: the 86-Panel has internal_relay_1 (GPIO32) and internal_relay_2 (GPIO46);
+#   - Ethernet removed
+---
+substitutions:
+  # Screen Size
+  screen_height: 720
+  screen_width: 720
+
+esphome:
+  min_version: 2026.1.0
+  project:
+    name: "Waveshare.ESP32-P4-WIFI6-Touch-LCD-4B"
+    version: "1.0"
+
+esp32:
+  variant: esp32p4
+  board: esp32-p4-evboard
+  flash_size: 32MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: true
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+preferences:
+  flash_write_interval: 5min
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+# -------------------------------------------
+# Network hardware
+# -------------------------------------------
+esp32_hosted:
+  active_high: true
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+
+# -------------------------------------------
+# LCD Back light
+# -------------------------------------------
+output:
+  - platform: ledc
+    id: gpio_backlight_pwm
+    pin: GPIO26
+    frequency: 100Hz
+    inverted: true
+    min_power: 0.1 # To prevent the backlight from being too dim
+    max_power: 0.8 # To prevent overheating due to excessive lighting
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+
+# -------------------------------------------
+# Touchscreen gt911
+# -------------------------------------------
+i2c:
+  - id: i2c_bus_a
+    sda: GPIO7
+    scl: GPIO8
+    scan: true
+    frequency: 400kHz
+
+touchscreen:
+  platform: gt911
+  id: my_touchscreen
+  display: my_display
+  i2c_id: i2c_bus_a
+  # on_touch:
+  #   - lambda: |-
+  #       ESP_LOGI("Touch", "Touch detected at x=%d, y=%d", touch.x, touch.y);
+  # on_update:
+  #   - lambda: |-
+  #       for (auto touch: touches)  {
+  #           if (touch.state <= 2) {
+  #             ESP_LOGI("Touch points:", "id=%d x=%d, y=%d x.raw=%d, y.raw=%d", touch.id, touch.x, touch.y, touch.x_raw, touch.y_raw);
+  #           }
+  #       }
+
+# -------------------------------------------
+# Display mipi_dsi
+# -------------------------------------------
+display:
+  - platform: mipi_dsi
+    id: my_display
+    model: WAVESHARE-P4-86-PANEL
+
+# Special LVGL settings required for this display
+lvgl:
+  byte_order: little_endian
+
+# -------------------------------------------
+# Audio
+# -------------------------------------------
+switch:
+  - platform: gpio
+    id: audio_amplifier
+    name: Speaker Enable
+    icon: "mdi:speaker"
+    entity_category: config
+    pin: GPIO53 # BSP_POWER_AMP_IO
+    restore_mode: RESTORE_DEFAULT_ON
+
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_mclk_pin: GPIO13
+    i2s_lrclk_pin: GPIO10
+    i2s_bclk_pin: GPIO12
+
+audio_dac:
+  - platform: es8311
+    id: my_dac
+    i2c_id: i2c_bus_a
+    address: 0x18
+
+audio_adc:
+  - platform: es7210
+    id: my_adc
+    i2c_id: i2c_bus_a
+    address: 0x40
+
+microphone:
+  - platform: i2s_audio
+    id: my_microphone
+    i2s_audio_id: i2s_audio_bus
+    i2s_din_pin: GPIO11
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    adc_type: external
+    # on_data:
+    #   - logger.log:
+    #       format: "Microphone data received: %d bytes"
+    #       args: [x.size()]
+
+speaker:
+  - platform: i2s_audio
+    id: my_speaker
+    i2s_audio_id: i2s_audio_bus
+    i2s_dout_pin: GPIO9
+    audio_dac: my_dac
+    dac_type: external
+    channel: mono
+    buffer_duration: 100ms
+    bits_per_sample: 16bit
+    sample_rate: 48000
+
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: my_speaker
+    source_speakers:
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+
+  - platform: resampler
+    id: announcement_resampling_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+  - platform: resampler
+    id: media_resampling_speaker
+    output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
