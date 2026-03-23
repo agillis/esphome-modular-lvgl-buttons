@@ -14,7 +14,7 @@ lvgl:
       bg_color: black
       # outline_width: 1
       # outline_color: red
-    container:
+    # container:
       # outline_width: 1
       # outline_color: red      
     label:

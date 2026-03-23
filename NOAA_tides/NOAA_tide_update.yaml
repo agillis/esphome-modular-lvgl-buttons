@@ -63,7 +63,7 @@ image:
     alpha_channel:
       - file: esphome-modular-lvgl-buttons/NOAA_tides/assets/images/tide_pointer.svg
         id: tide_pointer
-        resize: 200x88
+        resize: 140x62
 
       - file: esphome-modular-lvgl-buttons/NOAA_tides/assets/images/high_tide.svg
         id: high_tide
@@ -75,8 +75,8 @@ image:
 
 font:
   - file: "gfonts://Roboto@700"
-    id: roboto30_bold
-    size: 30
+    id: roboto24_bold
+    size: 24
     bpp: 8
 
 # -------------------------------------------

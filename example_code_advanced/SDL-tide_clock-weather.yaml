@@ -1,13 +1,13 @@
-external_components:
-  - source: github://pr#12312
-    components: [font, image, lvgl]
-    refresh: 1h
+# external_components:
+  # - source: github://pr#12312
+    # components: [font, image, lvgl]
+    # refresh: 1h
 
 # Substitution variables used through the codebase
 substitutions:
   icon_font: mdi_icons_40
   text_font: nunito_24
-  text_color: white
+  text_color: black
   bg_color: white
   button_on_color: "ep_orange"
   button_off_color: "very_dark_gray"
@@ -47,6 +47,23 @@ esphome:
 logger:
   level: debug
 
+http_request:
+  verify_ssl: false
+  ca_certificate_path: /etc/ssl/certs/ca-certificates.crt
+
+# ----------------------------------------------------------------------------------
+# Master Time update script
+# ----------------------------------------------------------------------------------
+# This script is called once per second. 
+# Any packages in this libary will !extend time_update to update their own labels
+# you can add code here to update your own custom labels. The lambda NOOP is 
+# only there as a place holder for your code
+# ----------------------------------------------------------------------------------
+script:
+  - id: time_update
+    then:
+      - lambda: |-
+          // No operation 
 
 packages:
   # Generic configuration for ESP32 screens
@@ -63,7 +80,8 @@ packages:
   # Some basic sensors
   sensors: !include esphome-modular-lvgl-buttons/sensors/sensors_base-SDL.yaml
   # Styles + Themes
-  theme_style: !include esphome-modular-lvgl-buttons/common/theme_style.yaml
+  # theme_style: !include esphome-modular-lvgl-buttons/common/theme_style.yaml
+  theme_style: !include esphome-modular-lvgl-buttons/common/theme_style_debug.yaml
   # Include if your touch screen has a backlight. Also sets the time from HA
   backlight: !include esphome-modular-lvgl-buttons/common/backlight_time.yaml
 
@@ -74,8 +92,12 @@ packages:
   loading_screen: !include esphome-modular-lvgl-buttons/pages/loading.yaml
   info_screen: !include esphome-modular-lvgl-buttons/pages/info.yaml
 
-  # Tide forecast packages
-  tides: !include esphome-modular-lvgl-buttons/tides/tide_update.yaml
+  # Tide forecast package
+  tide_info: !include
+    file: esphome-modular-lvgl-buttons/NOAA_tides/NOAA_tide_update.yaml
+    vars:
+      noaa_station_id: "8454578"    # Your station ID
+      noaa_unit_system: "english"   # or "metric"  
 
 # Weather packages
   # Display weather forecast using direct HA action (no template sensor needed!)
@@ -86,12 +108,18 @@ packages:
       size: 80
       weather_entity: weather.home
   # Get todays weather and display it (icons included automatically)
-  weather_today_200: !include
+  weather_today_180: !include
     file: esphome-modular-lvgl-buttons/weather_homeassistant/weather_today.yaml
     vars:
-      size: 200
+      size: 180
       weather_entity: weather.home
       weather_summary: sensor.home_hourly_summary
+
+  # Moon phase display
+  moon_phase: !include
+    file: esphome-modular-lvgl-buttons/moon/moon_phase.yaml
+    vars:
+      size: 100
 
 # Styles for Weather forecast
 .forecast_styles:
@@ -100,7 +128,7 @@ packages:
       width: SIZE_CONTENT
       bg_color: gray200
       bg_opa: cover
-      radius: 3
+      radius: 10
       pad_top: 2
       pad_bottom : 2
       layout:
@@ -120,278 +148,325 @@ packages:
       text_font: nunito_20
       text_color: dodgerblue
 
-    - &forecast_image_base
-      height: SIZE_CONTENT
+    - &forecast_image_wrapper
+      height: 80
+      width: 80
+      bg_opa: TRANSP
+      scrollbar_mode: "OFF"
 
-script:
-  - id: time_update
-    then:
-      - lvgl.label.update:
-          id: week_day
-          text: !lambda 'return id(system_time).now().strftime("%A");'  # Weekday
-      - lvgl.label.update:
-          id: month_day
-          text: !lambda |- # Month Day
-            auto time = id(system_time).now();
-            int day = time.day_of_month;
-            char strftime_buf[64];
-            snprintf(strftime_buf, sizeof(strftime_buf), "%s %d", time.strftime("%B").c_str(), day);
-            return {strftime_buf};
-      - lvgl.label.update:
-          id: time_label
-          text: !lambda 'return id(system_time).now().strftime("%l:%M %P");' # The format %I:%M %p will display the time in a 12-hour format with "am" or "pm" included
+font:
+  - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
+    id: nunito_80
+    size: 80
+    bpp: 8
+
+  - file: 'https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf'
+    id: mdi_icons_40
+    size: 40
+    bpp: 8
+    glyphs: [
+      $mdi_weather_windy,
+    ]
 
 
 # -------------------------------------------------------------------------
 # LVGL pages and buttons
 # -------------------------------------------------------------------------
+# This is the main LVGL section. We start with a simple 4x4 grid.
 lvgl:
-# Main Page
   pages:
-      - id: main_page
-        width: 100%
-        bg_color: ${bg_color}
-        widgets:
-          - obj:
-              height: SIZE_CONTENT
-              width: SIZE_CONTENT
-              x:  165
-              y: -10
-              bg_opa: TRANSP
-              widgets:
+    - id: main_page
+      bg_color: ${bg_color}
+      # layout: <rows>x<cols>
+      layout: 5x9
+      # <<: !include esphome-modular-lvgl-buttons/widgets/swipe_navigation.yaml
+      widgets:
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 2
+            widgets:
+              - label:
+                  id: weather_temperature_today
+                  text_font: nunito_80
+                  align: left_mid
+                  text: "100°"
+                  
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 2
+            grid_cell_row_span: 2
+            grid_cell_column_span: 2
+            widgets:
                 - image:
-                   src: unknown_200
+                   src: unknown_180
                    id: weather_condition_icon
-          - obj:
-                width: 320
-                height: 300
-                x: +2
-                pad_all: 0
-                bg_opa: TRANSP
-                layout:
-                  pad_column: 0
-                  pad_row: 0
-                  type: GRID
-                  grid_rows: [ content, content, content, content ]
-                  grid_columns: [ 320 ]
-                widgets:
-                  - label:
-                      height: SIZE_CONTENT
-                      width: SIZE_CONTENT
-                      text: "Wednesday"
-                      id: week_day
-                      text_font: nunito_48
-                      text_align: LEFT
-                      grid_cell_row_pos: 0
-                      grid_cell_column_pos: 0
-                  - label:
-                      text: "September 19"
-                      id: month_day
-                      text_font: nunito_24
-                      text_align: LEFT
-                      grid_cell_row_pos: 1
-                      grid_cell_column_pos: 0
-                  - label:
-                      text: "100°"
-                      id: weather_temperature_today
-                      text_font: nunito_72
-                      text_align: LEFT
-                      grid_cell_row_pos: 2
-                      grid_cell_column_pos: 0
-                  - label:
-                      width: 320
-                      height: 90
-                      text: "Generic weather forecast: Weather will be lovely today. Very Sunny. You will love it."
-                      id: weather_summary_today
-                      long_mode: wrap
-                      scrollable: true
-                      text_font: nunito_20
-                      text_align: LEFT
-                      grid_cell_row_pos: 3
-                      grid_cell_column_pos: 0
+                   align: center
+                  
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 2
+            layout:
+              type: grid
+              grid_columns: [CONTENT, FR(1)]
+              grid_rows: [CONTENT, CONTENT, CONTENT]
+              pad_row: 2
+              pad_column: 4
+            widgets:
+              - label:
+                  text_font: nunito_20
+                  text: "Humidity"
+                  grid_cell_row_pos: 0
+                  grid_cell_column_pos: 0
+                  grid_cell_x_align: START
+              - label:
+                  id: weather_humidity_today
+                  text_font: nunito_20
+                  text: "---%"
+                  grid_cell_row_pos: 0
+                  grid_cell_column_pos: 1
+                  grid_cell_x_align: END
+              - label:
+                  text_font: nunito_20
+                  text: "BP"
+                  grid_cell_row_pos: 1
+                  grid_cell_column_pos: 0
+                  grid_cell_x_align: START
+              - label:
+                  id: weather_pressure_today
+                  text_font: nunito_20
+                  text: "-- hPa"
+                  grid_cell_row_pos: 1
+                  grid_cell_column_pos: 1
+                  grid_cell_x_align: END
+              - label:
+                  text_font: nunito_20
+                  text: "Visibility"
+                  grid_cell_row_pos: 2
+                  grid_cell_column_pos: 0
+                  grid_cell_x_align: START
+              - label:
+                  id: weather_visibility_today
+                  text_font: nunito_20
+                  text: "-- mi"
+                  grid_cell_row_pos: 2
+                  grid_cell_column_pos: 1
+                  grid_cell_x_align: END                  
 
-          - obj:
-              y: +306
-              width: SIZE_CONTENT
-              height: SIZE_CONTENT
-              layout:
-                type: GRID
-                grid_rows: [ content ]
-                grid_columns: [ 80, 80, 80, 80 ]
-                pad_column: 4
-                pad_row: 0
-              widgets:
-                  - obj:
-                      <<: *forecast_obj_base
-                      grid_cell_row_pos: 0
-                      grid_cell_column_pos: 0
-                      widgets:
-                          - label:
-                              id: forecast_day_0
-                              <<: *forecast_label_base
-                              text: ???
-                          - image:
-                              id: forecast_condition_icon_0
-                              <<: *forecast_label_base
-                              src: unknown_80
-                          - label:
-                              id: forecast_temperature_hi_0
-                              <<: *forecast_label_base
-                              text: "---°"
-                          - label:
-                              id: forecast_temperature_lo_0
-                              <<: *forecast_label_base_lo
-                              text: "---°"
-                  - obj:
-                      <<: *forecast_obj_base
-                      grid_cell_row_pos: 0
-                      grid_cell_column_pos: 1
-                      widgets:
-                          - label:
-                              id: forecast_day_1
-                              <<: *forecast_label_base
-                              text: ???
-                          - image:
-                              id: forecast_condition_icon_1
-                              <<: *forecast_label_base
-                              src: unknown_80
-                          - label:
-                              id: forecast_temperature_hi_1
-                              <<: *forecast_label_base
-                              text: "---°"
-                          - label:
-                              id: forecast_temperature_lo_1
-                              <<: *forecast_label_base_lo
-                              text: "---°"
-                  - obj:
-                      <<: *forecast_obj_base
-                      grid_cell_row_pos: 0
-                      grid_cell_column_pos: 2
-                      widgets:
-                          - label:
-                              id: forecast_day_2
-                              <<: *forecast_label_base
-                              text: ???
-                          - image:
-                              id: forecast_condition_icon_2
-                              <<: *forecast_label_base
-                              src: unknown_80
-                          - label:
-                              id: forecast_temperature_hi_2
-                              <<: *forecast_label_base
-                              text: "---°"
-                          - label:
-                              id: forecast_temperature_lo_2
-                              <<: *forecast_label_base_lo
-                              text: "---°"
-                  - obj:
-                      <<: *forecast_obj_base
-                      grid_cell_row_pos: 0
-                      grid_cell_column_pos: 3
-                      widgets:
-                          - label:
-                              id: forecast_day_3
-                              <<: *forecast_label_base
-                              text: ???
-                          - image:
-                              id: forecast_condition_icon_3
-                              <<: *forecast_label_base
-                              src: unknown_80
-                          - label:
-                              id: forecast_temperature_hi_3
-                              <<: *forecast_label_base
-                              text: "---°"
-                          - label:
-                              id: forecast_temperature_lo_3
-                              <<: *forecast_label_base_lo
-                              text: "---°"
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 6
+            grid_cell_row_span: 1
+            grid_cell_column_span: 1
+            bg_color: 0x000000
+            bg_opa: cover
+            widgets:
+                - image:
+                   src: moon_phase_19_100
+                   id: moon_phase_image
+                   align: center
 
-          - obj:
-              height: 480
-              width: 480
-              bg_opa: TRANSP
-              align: TOP_RIGHT
-              pad_all: 4
-              widgets:
-                - meter:
-                    height: 100%
-                    width: 100%
-                    # radius: circle
-                    text_font: nunito_24
-                    outline_width: 10
-                    outline_color: black
-                    indicator:
-                      opa: TRANSP # get rid of that black dot in the center of the meter
-                    scales:
-                        - range_from: 1
-                          range_to: 100
-                          angle_range: 360
-                          rotation: 270
-                          indicators:
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 4
+            grid_cell_row_span: 1
+            grid_cell_column_span: 2
+            layout:
+              type: flex
+              flex_flow: ROW
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              pad_column: 4
+            widgets:
+              - label:
+                  text_font: $icon_font
+                  text: $mdi_weather_windy
+              - obj:
+                  bg_opa: TRANSP
+                  width: SIZE_CONTENT
+                  height: SIZE_CONTENT
+                  pad_all: 0
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_cross: CENTER
+                    pad_row: 0
+                  widgets:
+                    - label:
+                        id: weather_wind_dir_today
+                        text_font: nunito_20
+                        text: "---"
+                    - label:
+                        id: weather_wind_speed_today
+                        text_font: nunito_20
+                        text: "--mph"            
+
+
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 2
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 4
+            widgets:
+              - label:
+                  id: weather_summary_today
+                  text_font: $text_font
+                  align: center
+                  long_mode: WRAP
+                  width: 100%
+                  text: "forcast"                  
+
+         - container:
+            id: bottom_label_1
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_0
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
                             - image:
-                                id: tide_level
-                                src: tide_pointer
-                                pivot_x: 44
-                                pivot_y: 44
-                                value: 0
-                          ticks:
-                            count: 0
-                        - range_from: 5
-                          range_to: 1
-                          angle_range: 120
-                          rotation: 300
-                          ticks:
-                            width: 1
-                            count: 5
-                            major:
-                              label_gap: 25
-                              stride: 1
-                              width: 2
-                              length: 20
-                        - range_from: 5
-                          range_to: 1
-                          angle_range: 120
-                          rotation: 120
-                          ticks:
-                            width: 1
-                            count: 5
-                            major:
-                              label_gap: 25
-                              stride: 1
-                              width: 2
-                              length: 20
+                                id: forecast_condition_icon_0
+                                src: unknown_80
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_0
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_0
+                          <<: *forecast_label_base_lo
+                          text: "---°"
 
-                - label:
-                    align: center
-                    width: 100%
-                    text_align: center
-                    text_font: nunito_24
-                    text: "High Tide"
-                    y: -215
-                - label:
-                    id: high_tide_label
-                    align: center
-                    width: 100%
-                    text_align: center
-                    text_font: roboto30_bold
-                    text: "00:00 am"
-                    y: -185
-                - label:
-                    align: center
-                    width: 100%
-                    text_align: center
-                    text_font: nunito_24
-                    text: "Low Tide"
-                    y: 215
-                - label:
-                    id: low_tide_label
-                    align: center
-                    width: 100%
-                    text_align: center
-                    text_font: roboto30_bold
-                    text: "00:00 am"
-                    y: 185
+         - container:
+            id: bottom_label_2
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 1
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_1
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
+                            - image:
+                                id: forecast_condition_icon_1
+                                src: unknown_80
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_1
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_1
+                          <<: *forecast_label_base_lo
+                          text: "---°"
 
+         - container:
+            id: bottom_label_3
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 2
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_2
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
+                            - image:
+                                id: forecast_condition_icon_2
+                                src: unknown_80
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_2
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_2
+                          <<: *forecast_label_base_lo
+                          text: "---°"
+
+         - container:
+            id: bottom_label_4
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 3
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_3
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
+                            - image:
+                                id: forecast_condition_icon_3
+                                src: unknown_80
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_3
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_3
+                          <<: *forecast_label_base_lo
+                          text: "---°"
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 4
+            grid_cell_row_span: 4
+            grid_cell_column_span: 1
+
+            widgets:
                 - obj:
                        width: SIZE_CONTENT
                        height: SIZE_CONTENT
@@ -402,8 +477,6 @@ lvgl:
                          flex_flow: ROW_WRAP
                          pad_column: 1
                        widgets:
-                          - image:
-                              src: high_tide
                           - label:
                                 id: high_tide_height
                                 text_font: nunito_24
@@ -418,23 +491,133 @@ lvgl:
                          flex_flow: ROW_WRAP
                          pad_column: 1
                        widgets:
-                          - image:
-                              src: low_tide
                           - label:
                                 id: low_tide_height
                                 text_font: nunito_24
-                                text: "-0.00 ft"
+                                text: "-0.00 ft" 
 
-          # Time display - upper right
-          - label:
-                id: time_label
-                width: SIZE_CONTENT
-                height: SIZE_CONTENT
-                pad_all: 3
-                bg_opa: cover
-                bg_color: burnt_sienna
-                text_color: white
-                align: TOP_RIGHT
-                text_align: right
-                text_font: nunito_24
-                text: "00:00 am"
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 5
+            grid_cell_row_span: 4
+            grid_cell_column_span: 4
+            widgets:
+              - container:
+                  height: 100%
+                  width: 100%
+                  widgets:
+                    - meter:
+                        align: center
+                        height: 345px
+                        width: 345px
+                        # radius: circle
+                        text_font: nunito_24
+                        outline_width: 3
+                        outline_color: black
+                        indicator:
+                          opa: TRANSP # get rid of that black dot in the center of the meter
+                        scales:
+                            - range_from: 1
+                              range_to: 100
+                              angle_range: 360
+                              rotation: 270
+                              indicators:
+                                - image:
+                                    id: tide_level
+                                    src: tide_pointer
+                                    pivot_x: 31
+                                    pivot_y: 31
+                                    value: 0
+                              ticks:
+                                count: 0
+                            - range_from: 5
+                              range_to: 1
+                              angle_range: 120
+                              rotation: 300
+                              ticks:
+                                width: 1
+                                count: 5
+                                major:
+                                  label_gap: 25
+                                  stride: 1
+                                  width: 2
+                                  length: 20
+                            - range_from: 5
+                              range_to: 1
+                              angle_range: 120
+                              rotation: 120
+                              ticks:
+                                width: 1
+                                count: 5
+                                major:
+                                  label_gap: 25
+                                  stride: 1
+                                  width: 2
+                                  length: 20    
+
+                    - obj:
+                        align: TOP_LEFT
+                        width: SIZE_CONTENT
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 2
+                        widgets:
+                          - image:
+                              src: high_tide
+                    - obj:
+                        align: TOP_MID
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 0
+                        layout:
+                          type: flex
+                          flex_flow: COLUMN
+                          flex_align_cross: center
+                          pad_row: 0
+                        widgets:
+                          - label:
+                              text_font: nunito_20
+                              text_align: center
+                              width: 100%
+                              text: "High Tide"
+                          - label:
+                              id: high_tide_label
+                              text_font: roboto24_bold
+                              text_align: center
+                              width: 100%
+                              text: "00:00 am"
+                    - obj:
+                        align: BOTTOM_LEFT
+                        width: SIZE_CONTENT
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 2
+                        widgets:
+                          - image:
+                              src: low_tide
+                    - obj:
+                        align: BOTTOM_MID
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 0
+                        layout:
+                          type: flex
+                          flex_flow: COLUMN
+                          flex_align_cross: center
+                          pad_row: 0
+                        widgets:
+                          - label:
+                              id: low_tide_label
+                              text_font: roboto24_bold
+                              text_align: center
+                              width: 100%
+                              text: "00:00 am"
+                          - label:
+                              text_font: nunito_20
+                              text_align: center
+                              width: 100%
+                              text: "Low Tide"                     

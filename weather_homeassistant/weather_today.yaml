@@ -65,6 +65,58 @@ text_sensor:
               args: ['id(weather_humidity).state.c_str()']
 
   - platform: homeassistant
+    entity_id: ${weather_entity | default("weather.home")}
+    attribute: pressure
+    id: weather_pressure
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: weather_pressure_today
+            text:
+              format: "%s hPa"
+              args: ['id(weather_pressure).state.c_str()']
+
+  - platform: homeassistant
+    entity_id: ${weather_entity | default("weather.home")}
+    attribute: wind_speed
+    id: weather_wind_speed
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: weather_wind_speed_today
+            text: !lambda |-
+              int speed = (int)(atof(id(weather_wind_speed).state.c_str()) + 0.5);
+              return str_sprintf("%dmph", speed);
+
+  - platform: homeassistant
+    entity_id: ${weather_entity | default("weather.home")}
+    attribute: wind_bearing
+    id: weather_wind_bearing
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: weather_wind_dir_today
+            text: !lambda |-
+              static const char* dirs[] = {"N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"};
+              if (!x.empty()) {
+                int bearing = (int)(atof(x.c_str()) + 0.5);
+                return std::string(dirs[((bearing % 360 + 11) / 22) % 16]);
+              }
+              return std::string("---");
+
+  - platform: homeassistant
+    entity_id: ${weather_entity | default("weather.home")}
+    attribute: visibility
+    id: weather_visibility
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: weather_visibility_today
+            text:
+              format: "%s mi"
+              args: ['id(weather_visibility).state.c_str()']
+
+  - platform: homeassistant
     entity_id: ${weather_summary}
     id: weather_summary
     on_value:
