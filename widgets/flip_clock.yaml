@@ -112,7 +112,7 @@ script:
     then:
       - lvgl.label.update:
           id: flip_hour_label
-          text: !lambda 'return id(system_time).now().strftime("%-l");'
+          text: !lambda 'return id(system_time).now().strftime("%I");'
       - lvgl.label.update:
           id: flip_min_label
           text: !lambda 'return id(system_time).now().strftime("%M");'
