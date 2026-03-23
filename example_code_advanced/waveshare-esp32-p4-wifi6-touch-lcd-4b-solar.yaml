@@ -1,0 +1,262 @@
+---
+# Solar production display for the Waveshare ESP32-P4-WIFI6-Touch-LCD-4B (720×720)
+# Uses the Sungrow SHx Modbus integration for Home Assistant:
+# https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant
+#
+# Page 1 — Solar dashboard (4×4 grid):
+#   Row 0: Solar Now (W)       | Time
+#   Row 1: Yield Today (kWh)   | Home Usage (W)
+#   Row 2: Grid Export (kWh)   | Grid Import (kWh)
+#   Row 3: Battery SoC (%)     | Info
+#
+# Note: Sungrow already exposes daily energy sensors directly, so no HA helper
+# sensors or utility_meter entries are needed (unlike the Enphase Envoy setup).
+# Remove btn_battery if you don't have a Sungrow battery.
+
+substitutions:
+  # -------------------------------------------------------------------
+  # Sungrow entity IDs
+  # These match the default sensor names from the Sungrow Modbus integration.
+  # Adjust if your HA instance uses a different naming prefix.
+  # -------------------------------------------------------------------
+  ha_solar_power:   "sensor.total_dc_power"
+  ha_load_power:    "sensor.load_power"
+  ha_yield_today:   "sensor.daily_pv_generation"
+  ha_export_today:  "sensor.daily_exported_energy"
+  ha_import_today:  "sensor.daily_imported_energy"
+  ha_battery_soc:   "sensor.battery_level"
+
+  # -------------------------------------------------------------------
+  # UI
+  # -------------------------------------------------------------------
+  icon_font: mdi_icons_40
+  text_font: nunito_20
+  sensor_font: nunito_36
+  text_color: white
+  bg_color: black
+  button_on_color: "ep_orange"
+  button_off_color: "very_dark_gray"
+  icon_on_color: "yellow"
+  icon_off_color: "gray"
+  label_on_color: "white"
+  label_off_color: "gray"
+  button_text_color: "white"
+
+  # -------------------------------------------------------------------
+  # Backlight
+  # -------------------------------------------------------------------
+  display_daytime_brightness: "100%"
+  display_nighttime_brightness: "50%"
+  display_night_hour: "0"
+  display_night_minute: "0"
+  display_backlight_timeout_always_enabled: "false"
+  display_backlight_timeout_initial: "5"
+
+esphome:
+  name: "waveshare-p4-4b-solar"
+  friendly_name: "Solar Display"
+  on_boot:
+    - priority: 400
+      then:
+        - script.execute: update_loading_page
+
+logger:
+  level: debug
+  logs:
+    lvgl: info
+  hardware_uart: UART0
+
+image:
+  defaults:
+    byte_order: little_endian
+
+script:
+  - id: time_update
+    then:
+      # Ensure the time label uses a larger font on this 720×720 display
+      - lvgl.label.update:
+          id: label_time_btn
+          text_font: nunito_36
+
+packages:
+  wifi:           !include esphome-modular-lvgl-buttons/common/wifi.yaml
+  ota_screen:     !include esphome-modular-lvgl-buttons/common/ota.yaml
+  colors:         !include esphome-modular-lvgl-buttons/common/color.yaml
+  fonts:          !include esphome-modular-lvgl-buttons/common/fonts.yaml
+  glyphs:         !include esphome-modular-lvgl-buttons/common/mdi_glyph_substitutions.yaml
+  sensors:        !include esphome-modular-lvgl-buttons/sensors/sensors_base.yaml
+  theme_style:    !include esphome-modular-lvgl-buttons/common/theme_style.yaml
+  backlight:      !include esphome-modular-lvgl-buttons/common/backlight_time.yaml
+  hardware:       !include esphome-modular-lvgl-buttons/hardware/waveshare-esp32-p4-wifi6-touch-lcd-4b.yaml
+  media_voice:    !include esphome-modular-lvgl-buttons/hardware/media_player-voice_assistant.yaml
+  loading_screen: !include esphome-modular-lvgl-buttons/pages/loading.yaml
+  info_screen:    !include esphome-modular-lvgl-buttons/pages/info.yaml
+
+  # Row 0 — Solar Now | Time
+  btn_solar_now: !include
+    file: esphome-modular-lvgl-buttons/buttons/sensor_button.yaml
+    vars:
+      uid: solar_now
+      sensor_id: sensor_solar_power
+      row: 0
+      column: 0
+      text: "Solar Now"
+      icon: $mdi_solar_power
+      icon_color: yellow
+      sensor_font: $sensor_font
+
+  btn_time: !include
+    file: esphome-modular-lvgl-buttons/buttons/time_button.yaml
+    vars:
+      uid: time_btn
+      row: 0
+      column: 2
+      column_span: 2
+      click_page: info_screen
+
+  # Row 1 — Yield Today | Home Usage
+  btn_yield_today: !include
+    file: esphome-modular-lvgl-buttons/buttons/sensor_button.yaml
+    vars:
+      uid: yield_today
+      sensor_id: sensor_yield_today
+      row: 1
+      column: 0
+      text: "Yield Today"
+      icon: $mdi_white_balance_sunny
+      icon_color: orange
+      sensor_font: $sensor_font
+
+  btn_load_now: !include
+    file: esphome-modular-lvgl-buttons/buttons/sensor_button.yaml
+    vars:
+      uid: load_now
+      sensor_id: sensor_load_power
+      row: 1
+      column: 2
+      text: "Home Usage"
+      icon: $mdi_home
+      icon_color: dodgerblue
+      sensor_font: $sensor_font
+
+  # Row 2 — Grid Export | Grid Import (today kWh)
+  btn_grid_export: !include
+    file: esphome-modular-lvgl-buttons/buttons/sensor_button.yaml
+    vars:
+      uid: grid_export
+      sensor_id: sensor_export_today
+      row: 2
+      column: 0
+      text: "Grid Export"
+      icon: $mdi_transmission_tower_export
+      icon_color: light_green
+      sensor_font: $sensor_font
+
+  btn_grid_import: !include
+    file: esphome-modular-lvgl-buttons/buttons/sensor_button.yaml
+    vars:
+      uid: grid_import
+      sensor_id: sensor_import_today
+      row: 2
+      column: 2
+      text: "Grid Import"
+      icon: $mdi_transmission_tower_import
+      icon_color: tomato
+      sensor_font: $sensor_font
+
+  # Row 3 — Battery SoC | Info
+  # Remove btn_battery if you don't have a Sungrow battery
+  btn_battery: !include
+    file: esphome-modular-lvgl-buttons/buttons/sensor_button.yaml
+    vars:
+      uid: battery_soc
+      sensor_id: sensor_battery_soc
+      row: 3
+      column: 0
+      text: "Battery"
+      icon: $mdi_battery
+      icon_color: lime
+      sensor_font: $sensor_font
+
+  btn_info: !include
+    file: esphome-modular-lvgl-buttons/buttons/page_button.yaml
+    vars:
+      uid: info_btn
+      row: 3
+      column: 2
+      column_span: 2
+      text: "Info"
+      icon: $mdi_information_box
+      click_page: info_screen
+
+# -------------------------------------------------------------------
+# Sungrow sensors — pulled live from Home Assistant
+# -------------------------------------------------------------------
+sensor:
+  - platform: homeassistant
+    id: sensor_solar_power
+    entity_id: $ha_solar_power
+    unit_of_measurement: "W"
+    internal: true
+
+  - platform: homeassistant
+    id: sensor_load_power
+    entity_id: $ha_load_power
+    unit_of_measurement: "W"
+    internal: true
+
+  - platform: homeassistant
+    id: sensor_yield_today
+    entity_id: $ha_yield_today
+    unit_of_measurement: "kWh"
+    internal: true
+
+  - platform: homeassistant
+    id: sensor_export_today
+    entity_id: $ha_export_today
+    unit_of_measurement: "kWh"
+    internal: true
+
+  - platform: homeassistant
+    id: sensor_import_today
+    entity_id: $ha_import_today
+    unit_of_measurement: "kWh"
+    internal: true
+
+  - platform: homeassistant
+    id: sensor_battery_soc
+    entity_id: $ha_battery_soc
+    unit_of_measurement: "%"
+    internal: true
+
+# -------------------------------------------------------------------
+# LVGL pages
+# -------------------------------------------------------------------
+lvgl:
+  buffer_size: 100%
+  pages:
+    - id: main_page
+      layout: 4x4
+      styles: page_style
+      <<: !include esphome-modular-lvgl-buttons/widgets/swipe_navigation.yaml
+      widgets: []
+
+# -------------------------------------------------------------------
+# MDI icon font — only glyphs actually used
+# -------------------------------------------------------------------
+font:
+  - file: 'https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf'
+    id: mdi_icons_40
+    size: 40
+    bpp: 8
+    glyphs: [
+      $mdi_solar_power,                # Solar Now
+      $mdi_white_balance_sunny,        # Yield Today
+      $mdi_home,                       # Home Usage
+      $mdi_transmission_tower_export,  # Grid Export
+      $mdi_transmission_tower_import,  # Grid Import
+      $mdi_battery,                    # Battery SoC
+      $mdi_information_box,            # Info button
+      $mdi_chevron_up,                 # swipe navigation
+      $mdi_chevron_down,               # swipe navigation
+    ]

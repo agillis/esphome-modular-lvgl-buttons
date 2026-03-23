@@ -1,0 +1,98 @@
+# The Waveshare ESP32-S3-Touch-LCD-3.5
+# is a 3.5inch 320x480 touchscreen display with an ESP32-S3 MCU.
+#
+# Key differences from 3.5B variant:
+# - Display: ST7796 (SPI) vs AXS15231B (QSPI)
+# - Touch: FT6336 (I2C) vs AXS15231B (I2C)
+# - SPI: single-mode (MOSI only) vs quad-mode (4 data lines)
+#
+# Demo code pin definitions from Waveshare:
+# - SPI MOSI: GPIO1, SPI SCLK: GPIO5, DC: GPIO3
+# - I2C SDA: GPIO8, I2C SCL: GPIO7
+# - Backlight: GPIO6
+#
+# Schematic: https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.5/ESP32-S3-Touch-LCD-3.5-Schematic.pdf
+# Wiki:      https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.5
+---
+
+substitutions:
+  screen_height: 480
+  screen_width: 320
+
+esphome:
+  name: waveshare-esp32-s3-touch-35
+  friendly_name: WaveShare ESP32-S3 Touch LCD 3.5
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+preferences:
+  flash_write_interval: 5min
+
+logger:
+  level: DEBUG
+
+# Backlight control (LCD_BL)
+output:
+  - platform: ledc
+    pin: GPIO6
+    id: backlight_pwm
+    frequency: 5kHz
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+
+# SPI configuration for ST7796 display controller
+spi:
+  - id: lcd_spi
+    clk_pin: GPIO5        # LCD_SCLK
+    mosi_pin: GPIO1       # LCD_SDI/MOSI
+
+# Display configuration for ST7796 (via ili9xxx driver)
+display:
+  - platform: ili9xxx
+    id: my_display
+    spi_id: lcd_spi
+    model: ST7796
+    dimensions:
+      width: 320
+      height: 480
+    color_order: bgr
+    invert_colors: true
+    dc_pin: GPIO3
+    rotation: 90
+    show_test_card: true
+
+# I2C configuration for FT6336 touch controller
+i2c:
+  - id: touch_i2c
+    sda: GPIO8            # TP_SDA / ESP_SDA
+    scl: GPIO7            # TP_SCL / ESP_SCL
+    scan: true
+    frequency: 400kHz
+
+# TCA9554PWR GPIO Expander
+pca9554:
+  - id: tca9554_gpio_expander
+    address: 0x20
+    i2c_id: touch_i2c
+
+# Touchscreen configuration for FT6336
+touchscreen:
+  - platform: ft63x6
+    display: my_display
+    id: my_touchscreen
+    i2c_id: touch_i2c
+    update_interval: 10ms
