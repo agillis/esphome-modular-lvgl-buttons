@@ -26,17 +26,6 @@ esp32:
       execute_from_psram: true
       enable_idf_experimental_features: true
 
-esp32_hosted:
-  variant: ESP32C6
-  reset_pin: GPIO54
-  cmd_pin: GPIO19
-  clk_pin: GPIO18
-  d0_pin: GPIO14
-  d1_pin: GPIO15
-  d2_pin: GPIO16
-  d3_pin: GPIO17
-  active_high: true
-
 psram:
   mode: hex
   speed: 200MHz
@@ -47,6 +36,32 @@ preferences:
 esp_ldo:
   - voltage: 2.5V
     channel: 3
+    
+http_request:  # Needed by esp32_hosted-update and any JSON stuff    
+
+# -------------------------------------------
+# Network hardware
+# -------------------------------------------
+    
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true
+  
+# Firmware update for esp32_hosted ESP32-C6
+update:
+  - platform: esp32_hosted
+    name: ESP-Hosted Firmware
+    icon: mdi:chip
+    type: http
+    source: https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json
+    update_interval: 6h    
 
 # -------------------------------------------
 # Touchscreen gt911 i2c

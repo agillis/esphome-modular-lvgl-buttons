@@ -26,6 +26,22 @@ esp32:
       execute_from_psram: true
       enable_idf_experimental_features: true
 
+psram:
+  mode: hex
+  speed: 200MHz
+
+preferences:
+  flash_write_interval: 5min
+
+esp_ldo:
+  - voltage: 2.5V
+    channel: 3
+    
+http_request:  # Needed by esp32_hosted-update and any JSON stuff    
+
+# -------------------------------------------
+# Network hardware
+# -------------------------------------------
 esp32_hosted:
   variant: ESP32C6
   reset_pin: GPIO54
@@ -37,16 +53,14 @@ esp32_hosted:
   d3_pin: GPIO17
   active_high: true
 
-psram:
-  mode: hex
-  speed: 200MHz
-
-preferences:
-  flash_write_interval: 5min
-
-esp_ldo:
-  - voltage: 2.5V
-    channel: 3
+# Firmware update for esp32_hosted ESP32-C6
+update:
+  - platform: esp32_hosted
+    name: ESP-Hosted Firmware
+    icon: mdi:chip
+    type: http
+    source: https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json
+    update_interval: 6h
 
 # -------------------------------------------
 # Touchscreen GT911/GT9271 i2c

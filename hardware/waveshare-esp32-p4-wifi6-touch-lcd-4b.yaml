@@ -37,6 +37,8 @@ preferences:
 esp_ldo:
   - channel: 3
     voltage: 2.5V
+    
+http_request:  # Needed by esp32_hosted-update and any JSON stuff    
 
 # -------------------------------------------
 # Network hardware
@@ -51,6 +53,15 @@ esp32_hosted:
   d1_pin: GPIO15
   d2_pin: GPIO16
   d3_pin: GPIO17
+  
+# Firmware update for esp32_hosted ESP32-C6
+update:
+  - platform: esp32_hosted
+    name: ESP-Hosted Firmware
+    icon: mdi:chip
+    type: http
+    source: https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json
+    update_interval: 6h  
 
 # -------------------------------------------
 # LCD Back light
