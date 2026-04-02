@@ -1,11 +1,11 @@
 ---
-# Waveshare ESP32-S3 Touch LCD 4" hardware configuration file
+# Waveshare ESP32-S3 Touch LCD 4" (Version 4) hardware configuration file
 # https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4
 
 esphome:
   min_version: 2026.3.0
   project:
-    name: "Waveshare.ESP32-S3-touch-lcd-4"
+    name: "Waveshare.ESP32-S3-touch-lcd-4-V4"
     version: "1.0"
   platformio_options:
     board_build.flash_mode: dio
