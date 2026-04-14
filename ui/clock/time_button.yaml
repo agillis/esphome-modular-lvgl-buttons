@@ -1,0 +1,40 @@
+---
+# Change page button
+# vars:
+#    uid:
+#    row:
+#    column:
+#    row_span:
+#    column_span:
+#    click_page:
+
+# This section add a button to LVGL page main_page
+lvgl:
+  pages:
+    - id: !extend main_page
+      widgets:
+        - container:
+              id: ${uid}
+              grid_cell_row_pos: ${row}
+              grid_cell_column_pos: ${column}
+              grid_cell_row_span: ${row_span | default(1)}
+              grid_cell_column_span: ${column_span | default(1)}
+              grid_cell_x_align: stretch
+              grid_cell_y_align: stretch
+              # outline_width: 1
+              # outline_color: red
+              widgets:
+              - button:
+                  id: button_${uid}
+                  bg_opa: TRANSP
+                  widgets:
+                    - label:
+                        id: time_label
+                        styles: time_style
+                        text: '12:00 pm'
+                        
+                  on_short_click:
+                      then:
+                        lvgl.page.show: ${click_page | default(main_page)}
+
+

@@ -3,7 +3,7 @@ ota:
   - platform: web_server
   - platform: esphome
     id: ota_state
-    password: !secret ota_password
+    # password: !secret ota_password
     on_begin:
       - logger.log: "OTA Start"
       - light.turn_on: display_backlight

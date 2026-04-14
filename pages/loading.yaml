@@ -149,8 +149,8 @@ script:
           }
 
 api:
-  encryption:
-    key: !secret api_encryption_key
+  # encryption:
+    # key: !secret api_encryption_key
   on_client_connected:
     - if:
         condition:

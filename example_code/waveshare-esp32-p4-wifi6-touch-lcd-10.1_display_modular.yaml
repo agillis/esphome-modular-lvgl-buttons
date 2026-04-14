@@ -102,7 +102,7 @@ packages:
 
   # Add a button that displays the time
   button_2: !include
-    file: esphome-modular-lvgl-buttons/buttons/time_button_legacy.yaml
+    file: esphome-modular-lvgl-buttons/ui/clock/time_button.yaml
     vars:
       uid: button_2
       row: 0
@@ -112,7 +112,7 @@ packages:
 
   # Add a button that goes to a different page
   button_3: !include
-    file: esphome-modular-lvgl-buttons/buttons/page_button_legacy.yaml
+    file: esphome-modular-lvgl-buttons/ui/page/page_button.yaml
     vars:
       uid: button_3
       row: 1
