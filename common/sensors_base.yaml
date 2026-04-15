@@ -61,6 +61,7 @@ text_sensor:
     id: esphome_version
     name: 'ESPHome Version'
     hide_timestamp: true
+    hide_hash: true
     icon: mdi:source-branch
     entity_category: diagnostic
     on_value:

@@ -39,16 +39,19 @@ output:
     id: gpio_backlight_pwm
     frequency: 100Hz
 
-  # Built in 240v/120v relay
-  # Some versions of this switch have 3 relays some have 1
-  - id: internal_relay_1
-    platform: gpio
+# -------------------------------------------
+# Built in 240v/120v relay
+# Some versions of this switch have 3 relays some have 1
+# -------------------------------------------
+switch:
+  - platform: gpio
+    id: internal_relay_1
     pin: GPIO40
-  - id: internal_relay_2
-    platform: gpio
+  - platform: gpio
+    id: internal_relay_2
     pin: GPIO02
-  - id: internal_relay_3
-    platform: gpio
+  - platform: gpio
+    id: internal_relay_3
     pin: GPIO01
 
 light:
