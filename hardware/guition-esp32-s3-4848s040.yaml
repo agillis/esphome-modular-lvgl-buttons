@@ -79,6 +79,10 @@ touchscreen:
 # -------------------------------------------
 # Display st7701s spi
 # -------------------------------------------
+# Special LVGL settings required for this display
+lvgl:
+  rotation: ${rotation | default("0")}
+  
 spi:
   - id: lcd_spi
     clk_pin: GPIO48
@@ -134,7 +138,3 @@ display:
         - 6         # b3
         - 7         # b4
         - 15        # b5
-
-# Special LVGL settings required for this display
-lvgl:
-  rotation: ${rotation | default("0")}
