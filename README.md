@@ -83,6 +83,11 @@ substitutions:
   screen_width:  "480"
   screen_height: "480"
 
+  # you can use the glyphsets to support additional characters
+  # see also https://esphome.io/components/font/#configuration-variables
+  #
+  # glyphsets: "GF_Latin_Core"
+
 esphome:
   name: my-panel
   friendly_name: My Panel

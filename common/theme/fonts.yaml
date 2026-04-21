@@ -1,46 +1,66 @@
 ---
+# To support additional glyphs you can define the glyphsets-substitution
+# in your main .yaml-file
+#
+# See also: https://esphome.io/components/font/#configuration-variables
+#
+# substitutions:
+#  icon_font: mdi_icons_40
+#  [... additional configuration ...]
+#  label_on_color: "white"
+#  glyphsets: "GF_Latin_Core" # <-- add this line
+
 font:
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_72
     size: 72
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_48
     size: 48
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_42
     size: 42
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_36
     size: 36
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_24
     size: 24
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_20
     size: 20
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_18
     size: 18
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_14
     size: 14
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
 
   - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
     id: nunito_12
     size: 12
     bpp: 8
+    glyphsets: ${glyphsets | default("GF_Latin_Kernel")}
