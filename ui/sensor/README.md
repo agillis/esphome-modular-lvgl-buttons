@@ -28,6 +28,8 @@ The tile shows the icon top-left, the sensor name bottom-left, and the formatted
 | `row_span` | — | Number of rows to span (default: `1`) |
 | `column_span` | — | Number of columns to span (default: `1`) |
 | `page_id` | — | Parent page ID to place the tile on (default: `main_page`) |
+| `sensor_font` | - | Font for the sensor value, e.g. `nunito_36` |
+| `label_font` | - | Font for the sensor value, e.g. `nunito_36` |
 
 ## Usage
 

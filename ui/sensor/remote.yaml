@@ -14,6 +14,8 @@
 #   row_span:     (default: 1)
 #   column_span:  (default: 1)
 #   page_id:      parent page (default: main_page)
+#   label_font:   font for the label
+#   sensor_font:  font for the sensor value
 
 globals:
 - id: ${uid}_current_value
@@ -49,10 +51,12 @@ lvgl:
                 long_mode: wrap
                 width: 70%
                 text_color: $label_off_color
+                text_font: ${label_font | default(text_font)}
                 text: ${text}
             - label:
                 id: value_${uid}
                 align: top_right
+                text_font: ${sensor_font | default(text_font)}
                 text_font: $text_font
                 text_color: $label_on_color
                 text: "--"
