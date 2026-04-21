@@ -2,7 +2,6 @@
 #
 # Hardware configuration file
 ---
-
 substitutions:
   # Screen Size
   screen_height: 480
@@ -78,13 +77,16 @@ touchscreen:
   id: my_touchscreen
   display: my_display
   i2c_id: bus_a
+  transform:
+    mirror_x: true
+    mirror_y: true
 
 # -------------------------------------------
 # Display st7701s spi
 # -------------------------------------------
 # Special LVGL settings required for this display
 lvgl:
-  rotation: ${rotation | default("0")}
+  rotation: ${rotation | default("180")}
   
 spi:
   - id: lcd_spi
@@ -92,52 +94,9 @@ spi:
     mosi_pin: GPIO47
 
 display:
-  - platform: st7701s
+  - platform: mipi_rgb
     id: my_display
-    update_interval: never
-    auto_clear_enabled: false
-    spi_mode: MODE3
-    data_rate: 2MHz
-    color_order: RGB
-    invert_colors: false
+    model: GUITION-4848S040
     dimensions:
       width: 480
       height: 480
-    cs_pin: GPIO39
-    de_pin: GPIO18
-    hsync_pin: GPIO16
-    vsync_pin: GPIO17
-    pclk_pin: GPIO21
-    pclk_frequency: 12MHz
-    pclk_inverted: false
-    hsync_pulse_width: 8
-    hsync_front_porch: 10
-    hsync_back_porch: 20
-    vsync_pulse_width: 8
-    vsync_front_porch: 10
-    vsync_back_porch: 10
-    init_sequence:
-      - 1
-      # Custom sequences are an array, first byte is command, the rest are data.
-      - [0xFF, 0x77, 0x01, 0x00, 0x00, 0x10]  # CMD2_BKSEL_BK0
-      - [0xCD, 0x00]  # disable MDT flag
-    data_pins:
-      red:
-        - 11        # r1
-        - 12        # r2
-        - 13        # r3
-        - 14        # r4
-        - 0         # r5
-      green:
-        - 8         # g0
-        - 20        # g1
-        - 3         # g2
-        - 46        # g3
-        - 9         # g4
-        - 10        # g5
-      blue:
-        - 4         # b1
-        - 5         # b2
-        - 6         # b3
-        - 7         # b4
-        - 15        # b5

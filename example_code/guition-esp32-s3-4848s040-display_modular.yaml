@@ -67,7 +67,7 @@ packages:
   hardware: !include
     file: esphome-modular-lvgl-buttons/hardware/guition-esp32-s3-4848s040.yaml
     vars:
-      rotation: "0"  # set screen rotation 0, 90, 180, 270
+      rotation: "180"  # set screen rotation 0, 90, 180, 270
   # Basic boot screen with ESPHome logo and device diagnostic info
   loading_screen: !include esphome-modular-lvgl-buttons/pages/loading.yaml
   # info screen - WiFi login, IP address, MAC address etc
