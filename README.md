@@ -51,8 +51,6 @@ wifi_password: "your-wifi-password"
 ap_password: "your-fallback-ap-password"
 latitude: 0.0000
 longitude: 0.0000
-api_encryption_key: "your-base64-key"
-ota_password: "your-ota-password"
 ```
 
 ### 4. Create your device config
