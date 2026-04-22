@@ -67,6 +67,8 @@ light:
     icon: mdi:lightbulb-on
     id: display_backlight
     restore_mode: ALWAYS_ON
+    on_turn_on:
+      lvgl.resume:
     default_transition_length: 250ms
     on_turn_on:
       then:

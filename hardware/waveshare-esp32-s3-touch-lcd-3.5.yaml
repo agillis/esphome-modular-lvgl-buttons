@@ -53,6 +53,8 @@ light:
     name: "Display Backlight"
     id: display_backlight
     restore_mode: ALWAYS_ON
+    on_turn_on:
+      lvgl.resume:
 
 # SPI configuration for ST7796 display controller
 spi:

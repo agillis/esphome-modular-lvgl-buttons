@@ -45,6 +45,8 @@ light:
     output: display_backlight_output
     restore_mode: ALWAYS_ON
     default_transition_length: 250ms
+    on_turn_on:
+      lvgl.resume:
 
 # -------------------------------------------
 # Touchscreen gt911
