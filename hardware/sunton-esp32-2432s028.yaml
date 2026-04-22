@@ -2,7 +2,6 @@
 #
 # Hardware configuration file
 ---
-
 substitutions:
   # Screen Size
   screen_height: 320
@@ -25,7 +24,7 @@ preferences:
 
 lvgl:
   rotation: ${rotation | default("0")}
-  buffer_size: 25%
+  buffer_size: 75%
 
 i2c:
   - sda: 27
@@ -102,6 +101,7 @@ display:
   - id: my_display
     platform: mipi_spi
     model: ILI9341
+    color_depth: 8
     spi_id: tft
     cs_pin:
       number: 15
