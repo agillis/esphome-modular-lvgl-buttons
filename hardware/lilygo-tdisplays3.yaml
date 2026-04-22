@@ -103,7 +103,7 @@ light:
     id: display_backlight
     restore_mode: ALWAYS_ON
     on_turn_on:
-      lvgl.resume:
+      - lvgl.resume:
 
 # touchscreen:
 # None
