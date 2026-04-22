@@ -38,7 +38,7 @@ pip install cairosvg
 
 ```bash
 cd /config   # or wherever your ESPHome configs live
-git clone https://github.com/iezhkv/esphome-modular-lvgl-buttons.git
+git clone https://github.com/agillis/esphome-modular-lvgl-buttons.git
 ```
 
 ### 3. Set up secrets
