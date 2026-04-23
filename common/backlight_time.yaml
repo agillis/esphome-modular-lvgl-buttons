@@ -58,6 +58,16 @@ number:
     step: 1
     mode: box
 
+light:
+  - id: !extend display_backlight
+    on_turn_on: 
+      - lvgl.resume:
+
+  # You can set the display_backlight to on via HomeAssistant to turn on the display
+  # Please note, that the display will again turn off, after display_backlight_timeout has expired.
+  # To keep the display awake, you need to set display_backlight_timeout to -1, then
+  # reset the display_backlight_timeout when the turn on event is cleared (e.g. motion sensor does 
+  # not detect motion)
 
 time:
   - platform: homeassistant
