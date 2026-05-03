@@ -1,0 +1,47 @@
+---
+# Button to "sleep" the display (turns off backlight and pauses LVGL). Tap the screen once to wake it up again.
+# Simple type: tile-only, no detail page, no state.
+#
+# vars:
+#   uid:          unique identifier
+#   row:          grid row
+#   column:       grid column
+#   text:         tile label
+#   icon:         icon glyph
+#   row_span:     (default: 1)
+#   column_span:  (default: 1)
+#   page_id:      parent page (default: main_page)
+#   show_snow:    show a snow transition effect. If "false" then a fade-out effect is used (default: true)
+
+lvgl:
+  pages:
+  - id: !extend ${page_id | default("main_page")}
+    widgets:
+    - container:
+        id: ${uid}_tile
+        grid_cell_row_pos: ${row}
+        grid_cell_column_pos: ${column}
+        grid_cell_row_span: ${row_span | default(1)}
+        grid_cell_column_span: ${column_span | default(1)}
+        grid_cell_x_align: stretch
+        grid_cell_y_align: stretch
+        widgets:
+        - button:
+            id: button_${uid}
+            widgets:
+            - label:
+                id: icon_${uid}
+                text_font: $icon_font
+                align: top_left
+                text: ${icon}
+            - label:
+                id: label_${uid}
+                align: bottom_left
+                long_mode: wrap
+                width: 100%
+                text: ${text}
+            on_short_click:
+                then:
+                - light.turn_off: display_backlight
+                - lvgl.pause:
+                    show_snow: ${show_snow | default(true)}
