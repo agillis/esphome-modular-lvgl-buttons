@@ -1,18 +1,22 @@
 ---
 # Change page button
-#    uid:
-#    row:
-#    column:
-#    row_span:
-#    column_span:
-#    text:
-#    icon:
-#    click_page:
+# Short click opens page_id page
+#
+# vars:
+#   uid:          unique identifier
+#   row:          grid row
+#   column:       grid column
+#   text:         tile label
+#   icon:         icon glyph (required — e.g. $mdi_page_next or $mdi_page_previous)
+#   row_span:     (default: 1)
+#   column_span:  (default: 1)
+#   page_id:      parent page (default: main_page)
+#   click_page:   destination page name (default: main_page)
 
-# This section adds a button to LVGL page main_page
+# This section adds a button to an LVGL page
 lvgl:
   pages:
-    - id: !extend main_page
+    - id: !extend ${page_id | default("main_page")}
       widgets:
         - container:
             id: ${uid}
