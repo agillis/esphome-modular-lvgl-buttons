@@ -9,6 +9,7 @@
 #   column:       grid column
 #   text:         tile label
 #   icon:         icon glyph
+#   bg_opa:       background opacity. 0%-100% or text TRANSP or COVER, for fully opaque (optional, default: COVER)
 #   row_span:     (default: 1)
 #   column_span:  (default: 1)
 #   page_id:      parent page (default: main_page)
@@ -33,6 +34,7 @@ lvgl:
         widgets:
         - button:
             id: button_${uid}
+            bg_opa: ${bg_opa | default("COVER")}                          
             clickable: false
             widgets:
             - label:

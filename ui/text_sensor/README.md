@@ -23,6 +23,7 @@ Simple type — tile only, no detail page.
 | `column` | ✅ | Grid column position (0-based) |
 | `text` | ✅ | Label shown on tile (sensor name) |
 | `icon` | ✅ | MDI glyph e.g. `$mdi_information` |
+| `bg_opa` | — | Background opacity. 0%-100% or text TRANSP or COVER, for fully opaque (optional, default: COVER) |
 | `attribute` | — | HA attribute to display instead of the entity state (remote only, default: state) |
 | `row_span` | — | Number of rows to span (default: `1`) |
 | `column_span` | — | Number of columns to span (default: `1`) |

@@ -19,10 +19,12 @@ The tile shows the icon top-left, the sensor name bottom-left, and the formatted
 |---|---|---|
 | `uid` | ✅ | Unique identifier — must be unique across all tiles on the device |
 | `entity_id` | ✅ | ESPHome sensor ID (local) or HA entity string e.g. `"sensor.temperature"` (remote) |
+| `attribute` | — | HA attribute to display instead of the entity state (remote only, default: state) |
 | `row` | ✅ | Grid row position (0-based) |
 | `column` | ✅ | Grid column position (0-based) |
 | `text` | ✅ | Label shown on tile |
 | `icon` | ✅ | MDI glyph e.g. `$mdi_thermometer` |
+| `bg_opa` | — | Background opacity. 0%-100% or text TRANSP or COVER, for fully opaque (optional, default: COVER) |
 | `unit` | — | Unit string appended to the value e.g. `"°C"`, `"%"`, `"W"` (default: none) |
 | `precision` | — | Decimal places in the displayed value (default: `1`) |
 | `row_span` | — | Number of rows to span (default: `1`) |
