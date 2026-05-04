@@ -10,6 +10,7 @@
 #   column:       grid column
 #   text:         sensor name shown on tile
 #   icon:         icon glyph
+#   bg_opa:       background opacity. 0%-100% or text TRANSP or COVER, for fully opaque (optional, default: COVER)
 #   row_span:     (default: 1)
 #   column_span:  (default: 1)
 #   page_id:      parent page (default: main_page)
@@ -33,6 +34,7 @@ lvgl:
         grid_cell_y_align: stretch
         widgets:
         - button:
+            bg_opa: ${bg_opa | default("COVER")}
             id: button_${uid}
             clickable: false
             widgets:

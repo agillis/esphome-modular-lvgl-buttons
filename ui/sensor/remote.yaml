@@ -5,10 +5,12 @@
 # vars:
 #   uid:          unique identifier
 #   entity_id:    HA sensor entity, e.g. "sensor.outdoor_temperature"
+#   attribute:    HA attribute to display instead of state (optional, default: state)                                                                                     
 #   row:          grid row
 #   column:       grid column
 #   text:         sensor name shown on tile
 #   icon:         icon glyph
+#   bg_opa:       background opacity. 0%-100% or text TRANSP or COVER, for fully opaque (optional, default: COVER)
 #   unit:         unit string appended to value, e.g. "°C"  (optional, default "")
 #   precision:    decimal places                             (optional, default 1)
 #   row_span:     (default: 1)
@@ -36,6 +38,7 @@ lvgl:
         grid_cell_y_align: stretch
         widgets:
         - button:
+            bg_opa: ${bg_opa | default("COVER")}                          
             id: button_${uid}
             clickable: false
             widgets:
@@ -65,6 +68,7 @@ sensor:
 - platform: homeassistant
   id: ${uid}_ha_value
   entity_id: ${entity_id}
+  attribute: ${attribute | default("")}                                       
   internal: true
   on_value:
   - lambda: id(${uid}_current_value) = x;
