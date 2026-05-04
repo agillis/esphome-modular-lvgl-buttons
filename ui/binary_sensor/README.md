@@ -23,6 +23,7 @@ Simple type — tile only, no detail page.
 | `column` | ✅ | Grid column position (0-based) |
 | `text` | ✅ | Label shown on tile |
 | `icon` | ✅ | MDI glyph e.g. `$mdi_door_open` |
+| `bg_opa` | — | Background opacity. 0%-100% or text TRANSP or COVER, for fully opaque (optional, default: COVER) |
 | `row_span` | — | Number of rows to span (default: `1`) |
 | `column_span` | — | Number of columns to span (default: `1`) |
 | `page_id` | — | Parent page ID to place the tile on (default: `main_page`) |
