@@ -1,12 +1,18 @@
 ---
 # Waveshare ESP32-S3 Touch LCD 4" (Version 4) hardware configuration file
 # https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4
+#
+# Rev 4 differs from Rev 3:
+#  - I/O expander is CH32V003 @ 0x24 (Rev 3 was TCA9554/PCA9554 @ 0x20)
+#  - Backlight is hardware PWM inside the CH32V003 (no LEDC on GPIO44)
+#  - Adds buzzer (EXIO6 / BEE_EN) and PCF8563 RTC @ 0x51
+#  - LCD panel is mounted 180° vs Rev 3 — handled by LVGL rotation
 
 esphome:
   min_version: 2026.4.0
   project:
     name: "Waveshare.ESP32-S3-touch-lcd-4-V4"
-    version: "1.0"
+    version: "1.1"
   platformio_options:
     board_build.flash_mode: dio
 
@@ -26,65 +32,113 @@ psram:
   mode: octal
   speed: 80MHz
 
+# -------------------------------------------
+# I2C bus (CH32V003 expander, GT911 touch, PCF8563 RTC)
+# -------------------------------------------
 i2c:
-- id: bus_a
-  sda: 15
-  scl: 7
-  scan: true
-  frequency: 400kHz
+  - id: bus_a
+    sda: 15
+    scl: 7
+    scan: true
+    frequency: 400kHz
 
-pca9554:
-  id: expander
-  i2c_id: bus_a
-  address: 0x20
+# -------------------------------------------
+# CH32V003 I/O expander
+# Pin map (bit = `number:`):
+#   0  EXIO0 - Battery charger status (input)
+#   1  EXIO1 - TP_RST  (output)
+#   2  EXIO2 - TP_INT  (touch interrupt - input)
+#   3  EXIO3 - LCD_RST (output)
+#   4  EXIO4 - SD_CS   (output)
+#   5  EXIO5 - SYS_EN  (output, must be HIGH)
+#   6  EXIO6 - BEE_EN  (buzzer - output)
+#   7  EXIO7 - RTC_INT (input)
+# -------------------------------------------
+external_components:
+  - source: github://pr#10071
+    components: [waveshare_io_ch32v003]
+    refresh: 1h
 
+waveshare_io_ch32v003:
+  - id: wave_io
+    address: 0x24
+    i2c_id: bus_a
+
+# -------------------------------------------
+# System enable (EXIO5) - must be HIGH for board to operate
+# -------------------------------------------
+switch:
+  - platform: gpio
+    id: sys_enable
+    internal: true
+    restore_mode: ALWAYS_ON
+    pin:
+      waveshare_io_ch32v003: wave_io
+      number: 5
+      mode:
+        output: true
+
+  - platform: gpio
+    id: buzzer
+    pin:
+      waveshare_io_ch32v003: wave_io
+      number: 6  # EXIO6 - BEE_EN
+      mode:
+        output: true
+
+# -------------------------------------------
+# Backlight - hardware PWM via CH32V003 (register 0x05)
+# Higher duty = dimmer (FB pulled low). `inverted: true` makes
+# the light entity behave normally (100% = brightest).
+# -------------------------------------------
+output:
+  - platform: waveshare_io_ch32v003
+    id: pwm_backlight_output
+    inverted: true
+    zero_means_zero: true
+    safe_pwm_levels:
+      min_value: 1
+      max_value: 247
+
+light:
+  - platform: monochromatic
+    output: pwm_backlight_output
+    name: "Display Backlight"
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: RESTORE_DEFAULT_ON
+    default_transition_length: 750ms
+    gamma_correct: 1.8
+
+# -------------------------------------------
+# Touchscreen GT911
+# -------------------------------------------
 touchscreen:
   platform: gt911
   i2c_id: bus_a
   id: my_touchscreen
+  display: my_display
   reset_pin:
-    pca9554: expander
-    number: 0 # EXIO1 - TP_RST
+    waveshare_io_ch32v003: wave_io
+    number: 1  # EXIO1 - TP_RST
   interrupt_pin:
-    pca9554: expander
-    number: 1 # EXIO2 - TP_INT
+    waveshare_io_ch32v003: wave_io
+    number: 2  # EXIO2 - TP_INT (polled via expander)
 
-light:
-- platform: monochromatic
-  output: backlight_output
-  id: display_backlight
-  restore_mode: ALWAYS_ON
-  default_transition_length: 4s
-  gamma_correct: 1.8
-
-switch:
-- platform: gpio
-  id: buzzer
-  pin:
-    pca9554: expander
-    number: 5
-    mode:
-      output: true
-
-output:
-- platform: ledc
-  id: backlight_output
-  pin: 44
-  frequency: 1220Hz
-  inverted: true
-  min_power: 15%
-
+# ---------------------------------------------------------
+# Display - ST7701S RGB panel (pinout unchanged from Rev 3)
+# ---------------------------------------------------------
 spi:
-- id: lcd_spi
-  clk_pin: GPIO2
-  mosi_pin: GPIO1
+  - id: lcd_spi
+    clk_pin: GPIO2
+    mosi_pin: GPIO1
 
 display:
   platform: st7701s
   id: my_display
   reset_pin:
-    pca9554: expander
-    number: 2 # EXIO3 - LCD_RST
+    waveshare_io_ch32v003: wave_io
+    number: 3  # EXIO3 - LCD_RST
   update_interval: never
   auto_clear_enabled: false
   data_rate: 2MHz
@@ -106,25 +160,26 @@ display:
   pclk_inverted: false
   data_pins:
     red:
-    - GPIO46 #r1
-    - GPIO3 #r2
-    - GPIO8 #r3
-    - GPIO18 #r4
-    - GPIO17 #r5
+      - GPIO46  # r1
+      - GPIO3   # r2
+      - GPIO8   # r3
+      - GPIO18  # r4
+      - GPIO17  # r5
     green:
-    - GPIO14 #g0
-    - GPIO13 #g1
-    - GPIO12 #g2
-    - GPIO11 #g3
-    - GPIO10 #g4
-    - GPIO9 #g5
+      - GPIO14  # g0
+      - GPIO13  # g1
+      - GPIO12  # g2
+      - GPIO11  # g3
+      - GPIO10  # g4
+      - GPIO9   # g5
     blue:
-    - GPIO5 #b1
-    - GPIO45 #b2
-    - GPIO48 #b3
-    - GPIO47 #b4
-    - GPIO21 #b5
+      - GPIO5   # b1
+      - GPIO45  # b2
+      - GPIO48  # b3
+      - GPIO47  # b4
+      - GPIO21  # b5
 
 # Special LVGL settings required for this display
+# Rev 4 panel is physically rotated 180° vs Rev 3 - default to 180
 lvgl:
-  rotation: ${rotation | default("0")}
+  rotation: ${rotation | default("180")}
