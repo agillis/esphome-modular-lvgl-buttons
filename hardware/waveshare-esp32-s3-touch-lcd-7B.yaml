@@ -34,46 +34,45 @@ external_components:
     refresh: 1h
 
 waveshare_io_ch32v003:
-  - id: waveshare_io_hub
+  - id: wave_io
+    address: 0x24
+    i2c_id: bus_a
+    
+power_supply:
+  - id: wave_io_backlight_enable
+    pin:
+      waveshare_io_ch32v003: wave_io 
+      number: 2
+      mode:
+        output: true
+    enable_time: 0ms
+    keep_on_time: 0ms    
 
 # -------------------------------------------
 # LCD Back light
 # -------------------------------------------
 output:
   - platform: waveshare_io_ch32v003
-    id: backlight_output
-
-  - platform: waveshare_io_ch32v003
     id: pwm_backlight_output
+    power_supply: wave_io_backlight_enable
     inverted: true
-    min_power: 0.03
-    max_power: 1.0
+    zero_means_zero: true
+    safe_pwm_levels:
+      min_value: 1
+      max_value: 247
 
-switch:
-  - platform: gpio
-    internal: true
-    id: exio2
-    restore_mode: ALWAYS_ON
-    pin:
-      waveshare_io_ch32v003: waveshare_io_hub
-      number: 2
-      mode:
-        output: true
+  - platform: ledc
+    pin: GPIO6
+    id: buzzer
 
 light:
   - platform: monochromatic
     output: pwm_backlight_output
-    name: Display Backlight
+    name: "Display Backlight"
     icon: mdi:lightbulb-on
     id: display_backlight
-    restore_mode: ALWAYS_ON
-    default_transition_length: 250ms
-    on_turn_on:
-      then:
-        - switch.turn_on: exio2
-    on_turn_off:
-      then:
-        - switch.turn_off: exio2
+    restore_mode: RESTORE_DEFAULT_ON
+    default_transition_length: 750ms
 
 # -------------------------------------------
 # Touchscreen gt911
@@ -91,7 +90,7 @@ touchscreen:
   i2c_id: bus_a
   interrupt_pin: GPIO4
   reset_pin:
-    waveshare_io_ch32v003: waveshare_io_hub
+    waveshare_io_ch32v003: wave_io
     number: 1
     mode: OUTPUT
 # on_touch:
@@ -109,11 +108,13 @@ touchscreen:
 # Display
 # -------------------------------------------
 display:
-  - platform: rpi_dpi_rgb
+  - platform: mipi_rgb
+    model: RPI
     id: my_display
     update_interval: never
     auto_clear_enabled: false
     color_order: RGB
+    byte_order: little_endian
     pclk_frequency: 30MHZ
     dimensions:
       width: 1024
@@ -129,7 +130,7 @@ display:
     pclk_pin: 7
     pclk_inverted: true
     reset_pin:
-      waveshare_io_ch32v003: waveshare_io_hub
+      waveshare_io_ch32v003: wave_io
       number: 3
     hsync_back_porch: 152
     hsync_front_porch: 48
