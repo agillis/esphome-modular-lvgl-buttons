@@ -8,6 +8,7 @@
 #   column:       grid column
 #   row_span:     (default: 1)
 #   column_span:  (default: 1)
+#   bg_opa:       background opacity. 0%-100% or text TRANSP or COVER, for fully opaque (optional, default: COVER)
 #   click_page:   page to go to on click (default: main_page)
 #   page_id:      parent page (default: main_page)
 
@@ -28,7 +29,7 @@ lvgl:
               widgets:
               - button:
                   id: button_${uid}
-                  bg_opa: TRANSP
+                  bg_opa: ${bg_opa | default("TRANSP")}
                   widgets:
                     - label:
                         id: time_label
