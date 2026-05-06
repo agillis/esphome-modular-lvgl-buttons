@@ -640,6 +640,12 @@ script:
           snprintf(buf, sizeof(buf), "%.1f°", id(${uid}_target_temp));
         }
         return std::string(buf);
+      text_color: !lambda |-
+        if (id(${uid}_mode) == 0) {
+          return $label_off_color;
+        } else {
+          return $label_on_color;
+        }
 
   # Arc and labels per mode
   - if:
@@ -678,6 +684,9 @@ script:
       - lvgl.widget.update:
           id: icon_${uid}
           text_color: $icon_on_color
+      - lvgl.widget.update:
+          id: label_${uid}
+          text_color: $label_on_color
 
   - if:
       condition:
@@ -715,6 +724,9 @@ script:
       - lvgl.widget.update:
           id: icon_${uid}
           text_color: $icon_on_color
+      - lvgl.widget.update:
+          id: label_${uid}
+          text_color: $label_on_color
 
   - if:
       condition:
@@ -750,6 +762,9 @@ script:
       - lvgl.widget.update:
           id: icon_${uid}
           text_color: $icon_on_color
+      - lvgl.widget.update:
+          id: label_${uid}
+          text_color: $label_on_color
 
   - if:
       condition:
@@ -778,6 +793,9 @@ script:
       - lvgl.widget.update:
           id: icon_${uid}
           text_color: $icon_on_color
+      - lvgl.widget.update:
+          id: label_${uid}
+          text_color: $label_on_color
 
   - if:
       condition:
@@ -806,6 +824,9 @@ script:
       - lvgl.widget.update:
           id: icon_${uid}
           text_color: $icon_on_color
+      - lvgl.widget.update:
+          id: label_${uid}
+          text_color: $label_on_color
 
   - if:
       condition:
@@ -837,6 +858,9 @@ script:
       - lvgl.widget.update:
           id: icon_${uid}
           text_color: $icon_off_color
+      - lvgl.widget.update:
+          id: label_${uid}
+          text_color: $label_off_color
 
   # Fan icon color
   - if:
