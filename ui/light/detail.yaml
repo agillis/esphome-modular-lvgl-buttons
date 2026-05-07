@@ -4,9 +4,11 @@
 # Works identically for both local ESPHome lights and remote HA lights.
 #
 # vars:
-#   uid:      must match the including button's uid
-#   text:     light name shown on the detail page header
-#   page_id:  parent page to return to (default: main_page)
+#   uid:                  must match the including button's uid
+#   text:                 light name shown on the detail page header
+#   page_id:              parent page to return to (default: main_page)
+#   auto_return_seconds:  seconds of inactivity before auto-return to parent
+#                         page (default: 120, set to 0 to disable)
 #
 # Scripts the button MUST define:
 #   ${uid}_light_toggle           — toggle the light on/off
@@ -60,6 +62,12 @@ globals:
 - id: ${uid}_is_on
   type: bool
   initial_value: 'false'
+
+# Page timeout tracking for auto-return after 2 minutes of inactivity
+- id: ${uid}_page_inactivity_counter
+  type: int
+  initial_value: '0'
+  restore_value: false
 
 lvgl:
   gradients:
@@ -135,6 +143,7 @@ lvgl:
             - globals.set:
                 id: ${uid}_current_brightness
                 value: !lambda return x / 255.0f;
+            - script.execute: ${uid}_reset_page_timeout
             - script.execute: ${uid}_update_bulb_color
             on_release:
             - script.execute: ${uid}_light_set_brightness
@@ -175,6 +184,7 @@ lvgl:
             - globals.set:
                 id: ${uid}_current_saturation
                 value: !lambda return x;
+            - script.execute: ${uid}_reset_page_timeout
             - script.execute: ${uid}_update_bulb_color
             on_release:
             - script.execute: ${uid}_light_apply_hs
@@ -336,6 +346,7 @@ lvgl:
                 - globals.set:
                     id: ${uid}_current_hue
                     value: !lambda return x;
+                - script.execute: ${uid}_reset_page_timeout
                 - script.execute: ${uid}_update_bulb_color
                 on_release:
                 - script.execute: ${uid}_light_apply_hs
@@ -371,6 +382,7 @@ lvgl:
                 - globals.set:
                     id: ${uid}_current_color_temp
                     value: !lambda return x;
+                - script.execute: ${uid}_reset_page_timeout
                 - script.execute: ${uid}_update_bulb_color
                 on_release:
                 - script.execute: ${uid}_light_apply_color_temp
@@ -391,6 +403,7 @@ lvgl:
         border_width: 0
         radius: 50
         on_short_click:
+        - script.execute: ${uid}_reset_page_timeout
         - script.execute: ${uid}_light_toggle
         widgets:
         - label:
@@ -433,12 +446,25 @@ lvgl:
             text_color: steel_blue
             text: $mdi_chevron_up
         on_click:
+        - globals.set:
+            id: ${uid}_page_inactivity_counter
+            value: '0'
         - lvgl.page.show:
             id: ${page_id | default("main_page")}
             animation: MOVE_RIGHT
             time: 300ms
 
 script:
+# ═══════════════════════════════════════════════════════════════════════════════
+# Reset page inactivity counter (resets 2-minute auto-return timer)
+# Call on page open and on every user interaction to restart the timer
+# ═══════════════════════════════════════════════════════════════════════════════
+- id: ${uid}_reset_page_timeout
+  then:
+  - globals.set:
+      id: ${uid}_page_inactivity_counter
+      value: '1'
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Sync globals → LVGL widgets (called after any state change)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -637,3 +663,34 @@ script:
       lv_obj_set_style_shadow_spread(id(${uid}_bulb_btn), spread, 0);
       lv_obj_set_style_shadow_width(id(${uid}_bulb_btn), width, 0);
       lv_obj_set_style_text_color(id(${uid}_bulb_icon), lv_color_hex(color), 0);
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Auto-return to parent page after inactivity timeout
+# Per-light 1s interval that increments the counter while > 0 (i.e. page open).
+# When the counter reaches ${auto_return_seconds} (default 120, 0 disables),
+# navigate back to the parent page and reset.
+# ═══════════════════════════════════════════════════════════════════════════════
+interval:
+- interval: 1s
+  then:
+  - if:
+      condition:
+        lambda: 'return id(${uid}_page_inactivity_counter) > 0;'
+      then:
+      - if:
+          condition:
+            lambda: |-
+              return ${auto_return_seconds | default(120)} > 0 &&
+                     id(${uid}_page_inactivity_counter) >= ${auto_return_seconds | default(120)};
+          then:
+          - lvgl.page.show:
+              id: ${page_id | default("main_page")}
+              animation: MOVE_RIGHT
+              time: 300ms
+          - globals.set:
+              id: ${uid}_page_inactivity_counter
+              value: '0'
+          else:
+          - globals.set:
+              id: ${uid}_page_inactivity_counter
+              value: !lambda 'return id(${uid}_page_inactivity_counter) + 1;'

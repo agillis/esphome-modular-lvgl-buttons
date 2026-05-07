@@ -79,6 +79,7 @@ lvgl:
                   id: ${uid}_light_page
                   animation: MOVE_LEFT
                   time: 300ms
+              - script.execute: ${uid}_reset_page_timeout
 
 # ── Hook into the light's state changes ───────────────────────────────────────
 light:
