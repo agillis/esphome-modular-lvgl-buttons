@@ -11,7 +11,9 @@
 #   icon:         icon glyph (optional, default: $mdi_lightbulb)
 #   row_span:     (default: 1)
 #   column_span:  (default: 1)
-#   page_id:      parent page (default: main_page)
+#   page_id:             parent page (default: main_page)
+#   auto_return_minutes: detail-page inactivity timeout in minutes
+#                        (default: 2, set to 0 to disable)
 
 packages:
   ${uid}_detail: !include
@@ -20,6 +22,7 @@ packages:
       uid: ${uid}
       text: ${text}
       page_id: ${page_id | default("main_page")}
+      auto_return_minutes: ${auto_return_minutes | default(2)}
 
 lvgl:
   pages:
@@ -79,6 +82,7 @@ lvgl:
                   id: ${uid}_light_page
                   animation: MOVE_LEFT
                   time: 300ms
+              - script.execute: ${uid}_reset_page_timeout
 
 # ── HA state sensors ──────────────────────────────────────────────────────────
 
