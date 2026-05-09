@@ -1,6 +1,40 @@
 ---
 # Media Player and voice assistant
 # Uses Sendspin for multiroom audio and speaker_source for improved media playback
+#
+# Wake-word user-disable
+# ----------------------
+# Declares a `wake_word_user_disabled` global. When set true (e.g. by a UI
+# long-press handler in a screen YAML), the three internal restarts of
+# `micro_wake_word` (media_player.on_idle, voice_assistant.on_end,
+# voice_assistant.on_client_connected) are skipped, so the wake word stays
+# off until the user re-enables it.
+#
+# The corresponding `micro_wake_word.stop` is *not* gated — stopping is always
+# safe and idempotent. Downstream UI that toggles the global is responsible
+# for calling stop/start once at toggle time.
+#
+# Heard! pill flash
+# -----------------
+# When `ui/voice/indicator_pill.yaml` is included on the same device, the
+# `on_wake_word_detected` action briefly flashes the pill green and writes
+# "Heard!" so the user gets immediate visual confirmation that the wake word
+# fired. The package's `text_sensor` will overwrite it with the next pipeline
+# state (typically blue "Listening") within a second or two.
+#
+# These updates target the default widget IDs declared by the pill package
+# (`voice_indicator` and `voice_indicator_label`). If the pill package is not
+# included, ESPHome's compile-time validator will flag the missing IDs — in
+# that case either include the pill package or remove the three lvgl.* lines
+# inside `on_wake_word_detected:` below.
+
+globals:
+  # Sticky user toggle that suppresses internal wake-word restarts.
+  # restore_value: true so the user's choice persists across reboots.
+  - id: wake_word_user_disabled
+    type: bool
+    restore_value: true
+    initial_value: 'false'
 
 external_components:
   - source:
@@ -111,7 +145,11 @@ media_player:
                       id: my_media_player
           then:
             - logger.log: "Media player idle, restarting wake word"
-            - micro_wake_word.start
+            - if:
+                condition:
+                  lambda: 'return !id(wake_word_user_disabled);'
+                then:
+                  - micro_wake_word.start:
 
 sensor:
   - platform: template
@@ -143,6 +181,15 @@ micro_wake_word:
   on_wake_word_detected:
     then:
       - logger.log: "Wake word detected"
+      # Brief green flash on the voice indicator pill (if `ui/voice/indicator_pill.yaml`
+      # is included on this device). Overwritten by the pipeline `text_sensor` shortly.
+      - lvgl.label.update:
+          id: voice_indicator_label
+          text: "Heard!"
+      - lvgl.widget.update:
+          id: voice_indicator
+          bg_color: 0x1B5E20
+          border_color: 0x69F0AE
       - voice_assistant.start:
           wake_word: !lambda return wake_word;
 
@@ -171,8 +218,16 @@ voice_assistant:
     # Brief pause to let the speaker fully release the I2S bus
     - delay: 300ms
     - logger.log: "Voice assistant ended, restarting wake word"
-    - micro_wake_word.start:
+    - if:
+        condition:
+          lambda: 'return !id(wake_word_user_disabled);'
+        then:
+          - micro_wake_word.start:
   on_client_connected:
-    - micro_wake_word.start:
+    - if:
+        condition:
+          lambda: 'return !id(wake_word_user_disabled);'
+        then:
+          - micro_wake_word.start:
   on_client_disconnected:
     - micro_wake_word.stop:
