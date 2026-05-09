@@ -1,0 +1,179 @@
+---
+# Voice Indicator Pill
+#
+# A compact pill-shaped status widget that reflects the current state of the
+# Home Assistant voice pipeline running on this device. Designed to live in a
+# single grid cell on the main page (typically next to a volume button on the
+# bottom row of an audio screen).
+#
+# State colour map (driven by the HA voice pipeline status text_sensor and
+# the `wake_word_user_disabled` global declared by
+# `hardware/media_player-voice_assistant.yaml`):
+#   - Idle / wake-word running -> dark navy   (label "Tap to talk" / "Idle")
+#   - Wake word detected       -> dark green  (label "Heard!")  — set inside the
+#                                 hardware package on `on_wake_word_detected`
+#   - HA pipeline listening    -> dark blue   (label "Listening")
+#   - User disabled wake word  -> dark red    (label "Wake OFF") — sticky;
+#                                 long-press the pill to toggle
+#
+# Long-press the pill to toggle wake-word on/off. Single-tap behaviour:
+#   - if currently disabled -> re-enable wake word (back to Idle/Tap to talk)
+#   - if currently enabled  -> manually start the voice assistant
+# The pill briefly shows "Talk now" then returns to "Tap to talk" after 10 s.
+#
+# vars:
+#   uid:               unique identifier (default: voice_indicator)
+#   page_id:           parent page (default: main_page)
+#   row:               grid row position (REQUIRED)
+#   column:            grid column position (REQUIRED)
+#   row_span:          (default: 1)
+#   column_span:       (default: 1)
+#   width:             pill width in px  (default: 100)
+#   height:            pill height in px (default: 40)
+#   voice_status_entity_id:
+#                      HA text_sensor entity_id that carries the voice pipeline
+#                      state (typically "sensor.<device_name>_voice_assistant_status")
+#                      REQUIRED.
+#
+# Optional theme overrides (any can be omitted to use the defaults shown):
+#   idle_bg_color:           (default: 0x222244)
+#   idle_border_color:       (default: 0x444466)
+#   idle_text_color:         (default: 0x666677)
+#   listening_bg_color:      (default: 0x1565C0)
+#   listening_border_color:  (default: 0x90CAF9)
+#   disabled_bg_color:       (default: 0x6A1B1B)
+#   disabled_border_color:   (default: 0xFF8A80)
+
+globals:
+  # Suppresses on_click that LVGL fires after on_long_press release (used by
+  # downstream extensions such as a long-press wake-word disable toggle).
+  - id: ${uid | default("voice_indicator")}_long_press_guard
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+lvgl:
+  pages:
+  - id: !extend ${page_id | default("main_page")}
+    widgets:
+    - obj:
+        id: ${uid | default("voice_indicator")}
+        grid_cell_row_pos: ${row}
+        grid_cell_column_pos: ${column}
+        grid_cell_row_span: ${row_span | default(1)}
+        grid_cell_column_span: ${column_span | default(1)}
+        grid_cell_x_align: center
+        grid_cell_y_align: end
+        width: ${width | default(100)}
+        height: ${height | default(40)}
+        bg_color: ${idle_bg_color | default(0x222244)}
+        radius: 8
+        border_width: 1
+        border_color: ${idle_border_color | default(0x444466)}
+        clickable: true   # REQUIRED — obj does not receive clicks otherwise
+        on_click:
+          then:
+          - if:
+              condition:
+                lambda: 'return id(${uid | default("voice_indicator")}_long_press_guard);'
+              then:
+              - logger.log: "voice indicator on_click suppressed (long-press tail)"
+              else:
+              - if:
+                  condition:
+                    lambda: 'return id(wake_word_user_disabled);'
+                  then:
+                    # User disabled -> single tap re-enables wake word
+                    - globals.set: { id: wake_word_user_disabled, value: 'false' }
+                    - micro_wake_word.start:
+                    - lvgl.label.update:
+                        id: ${uid | default("voice_indicator")}_label
+                        text: "Tap to talk"
+                    - lvgl.widget.update:
+                        id: ${uid | default("voice_indicator")}
+                        bg_color: ${idle_bg_color | default(0x222244)}
+                        border_color: ${idle_border_color | default(0x444466)}
+                  else:
+                    # Wake word enabled -> single tap starts a manual conversation
+                    - micro_wake_word.stop:
+                    - delay: 150ms
+                    - voice_assistant.start:
+                    - lvgl.label.update:
+                        id: ${uid | default("voice_indicator")}_label
+                        text: "Talk now"
+                    - delay: 10s
+                    - lvgl.label.update:
+                        id: ${uid | default("voice_indicator")}_label
+                        text: "Tap to talk"
+                    - micro_wake_word.start:
+        on_long_press:
+          then:
+          # Long-press toggles wake-word user-disable.
+          - globals.set:
+              id: ${uid | default("voice_indicator")}_long_press_guard
+              value: 'true'
+          - lambda: 'id(wake_word_user_disabled) = !id(wake_word_user_disabled);'
+          - if:
+              condition:
+                lambda: 'return id(wake_word_user_disabled);'
+              then:
+                - micro_wake_word.stop:
+                - lvgl.label.update:
+                    id: ${uid | default("voice_indicator")}_label
+                    text: "Wake OFF"
+                - lvgl.widget.update:
+                    id: ${uid | default("voice_indicator")}
+                    bg_color: ${disabled_bg_color | default(0x6A1B1B)}
+                    border_color: ${disabled_border_color | default(0xFF8A80)}
+              else:
+                - micro_wake_word.start:
+                - lvgl.label.update:
+                    id: ${uid | default("voice_indicator")}_label
+                    text: "Tap to talk"
+                - lvgl.widget.update:
+                    id: ${uid | default("voice_indicator")}
+                    bg_color: ${idle_bg_color | default(0x222244)}
+                    border_color: ${idle_border_color | default(0x444466)}
+          # Hold the click-suppress guard past LVGL's click-on-release window.
+          - delay: 600ms
+          - globals.set:
+              id: ${uid | default("voice_indicator")}_long_press_guard
+              value: 'false'
+        widgets:
+        - label:
+            id: ${uid | default("voice_indicator")}_label
+            text: "Tap to talk"
+            text_font: $text_font
+            text_color: ${idle_text_color | default(0x666677)}
+            align: center
+
+text_sensor:
+  - platform: homeassistant
+    id: ${uid | default("voice_indicator")}_pipeline_state
+    entity_id: ${voice_status_entity_id}
+    on_value:
+      then:
+        - lambda: |-
+            // If the user has disabled wake word, hold the "Wake OFF" red state
+            // and don't let HA pipeline updates overwrite it.
+            if (id(wake_word_user_disabled)) {
+              lv_label_set_text(id(${uid | default("voice_indicator")}_label), "Wake OFF");
+              lv_obj_set_style_bg_color(id(${uid | default("voice_indicator")}),
+                lv_color_hex(${disabled_bg_color | default(0x6A1B1B)}), 0);
+              lv_obj_set_style_border_color(id(${uid | default("voice_indicator")}),
+                lv_color_hex(${disabled_border_color | default(0xFF8A80)}), 0);
+              return;
+            }
+            if (x == "Listening") {
+              lv_label_set_text(id(${uid | default("voice_indicator")}_label), "Listening");
+              lv_obj_set_style_bg_color(id(${uid | default("voice_indicator")}),
+                lv_color_hex(${listening_bg_color | default(0x1565C0)}), 0);
+              lv_obj_set_style_border_color(id(${uid | default("voice_indicator")}),
+                lv_color_hex(${listening_border_color | default(0x90CAF9)}), 0);
+            } else {
+              lv_label_set_text(id(${uid | default("voice_indicator")}_label), "Idle");
+              lv_obj_set_style_bg_color(id(${uid | default("voice_indicator")}),
+                lv_color_hex(${idle_bg_color | default(0x222244)}), 0);
+              lv_obj_set_style_border_color(id(${uid | default("voice_indicator")}),
+                lv_color_hex(${idle_border_color | default(0x444466)}), 0);
+            }
