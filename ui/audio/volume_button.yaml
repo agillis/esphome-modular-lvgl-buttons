@@ -1,0 +1,131 @@
+---
+# Volume Button + Popup Overlay
+#
+# A tile-shaped button that opens a full-screen volume slider popup. The popup
+# auto-closes after `autoclose_seconds` of inactivity (default 15 s) and binds
+# directly to the speaker via `media_player.volume_set` on the configured
+# media_player id.
+#
+# vars:
+#   uid:                  unique identifier (default: volume_btn)
+#   page_id:              parent page (default: main_page)
+#   row:                  grid row position    (REQUIRED)
+#   column:               grid column position (REQUIRED)
+#   row_span:             (default: 1)
+#   column_span:          (default: 1)
+#   width:                button width  (default: 100)
+#   height:               button height (default: 40)
+#   text:                 button label  (default: "Volume")
+#   icon:                 button icon glyph (default: $mdi_volume_high)
+#   media_player_id:      ESPHome media_player component id to control
+#                         (default: my_media_player — as defined by
+#                         hardware/media_player-voice_assistant.yaml)
+#   autoclose_seconds:    popup inactivity timeout (default: 15)
+#   initial_value:        slider initial value 0-100 (default: 75)
+
+script:
+  # Restart-mode timer: every interaction reschedules the auto-close.
+  - id: ${uid | default("volume_btn")}_popup_autoclose
+    mode: restart
+    then:
+      - delay: ${autoclose_seconds | default(15)}s
+      - lvgl.widget.update:
+          id: ${uid | default("volume_btn")}_popup
+          hidden: true
+
+lvgl:
+  pages:
+  - id: !extend ${page_id | default("main_page")}
+    widgets:
+    - button:
+        id: ${uid | default("volume_btn")}
+        grid_cell_row_pos: ${row}
+        grid_cell_column_pos: ${column}
+        grid_cell_row_span: ${row_span | default(1)}
+        grid_cell_column_span: ${column_span | default(1)}
+        grid_cell_x_align: center
+        grid_cell_y_align: end
+        width: ${width | default(100)}
+        height: ${height | default(40)}
+        bg_color: 0x222244
+        radius: 8
+        border_width: 1
+        border_color: 0x5555AA
+        on_click:
+          then:
+            - lvgl.widget.update:
+                id: ${uid | default("volume_btn")}_popup
+                hidden: false
+            - script.execute: ${uid | default("volume_btn")}_popup_autoclose
+        widgets:
+          - label:
+              text: ${icon | default("$mdi_volume_high")}
+              text_font: $icon_font
+              text_color: white
+              align: top_mid
+          - label:
+              text: ${text | default("Volume")}
+              text_font: $text_font
+              text_color: 0xCCCCCC
+              align: bottom_mid
+
+  top_layer:
+    widgets:
+      - obj:
+          id: ${uid | default("volume_btn")}_popup
+          width: 460
+          height: 320
+          align: center
+          bg_color: 0x222233
+          bg_opa: COVER
+          radius: 16
+          border_width: 2
+          border_color: 0x5555AA
+          pad_all: 24
+          hidden: true
+          widgets:
+            - label:
+                text: "Speaker Volume"
+                text_color: white
+                align: top_mid
+            - label:
+                id: ${uid | default("volume_btn")}_value_label
+                text: "${initial_value | default(75)}%"
+                text_color: 0x90CAF9
+                align: center
+                y: -30
+            - slider:
+                id: ${uid | default("volume_btn")}_slider
+                width: 380
+                height: 28
+                align: center
+                y: 20
+                min_value: 0
+                max_value: 100
+                value: ${initial_value | default(75)}
+                on_value:
+                  - lvgl.label.update:
+                      id: ${uid | default("volume_btn")}_value_label
+                      text: !lambda 'return (std::to_string((int)x) + "%").c_str();'
+                  - media_player.volume_set:
+                      id: ${media_player_id | default("my_media_player")}
+                      volume: !lambda 'return x / 100.0f;'
+                  - script.execute: ${uid | default("volume_btn")}_popup_autoclose
+            - button:
+                width: 140
+                height: 50
+                align: bottom_mid
+                y: -10
+                bg_color: 0x333344
+                radius: 10
+                on_click:
+                  then:
+                    - script.stop: ${uid | default("volume_btn")}_popup_autoclose
+                    - lvgl.widget.update:
+                        id: ${uid | default("volume_btn")}_popup
+                        hidden: true
+                widgets:
+                  - label:
+                      text: "Close"
+                      text_color: 0xAAAAAA
+                      align: center
