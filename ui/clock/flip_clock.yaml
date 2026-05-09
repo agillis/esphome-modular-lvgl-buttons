@@ -92,6 +92,7 @@ lvgl:
                   widgets:
                     # ── Hour Panel ──
                     - obj:
+                        id: flip_hour_panel
                         styles: flip_panel_style
                         flex_grow: 1
                         scrollable: false
@@ -123,6 +124,7 @@ lvgl:
 
                     # ── Minute Panel ──
                     - obj:
+                        id: flip_min_panel
                         styles: flip_panel_style
                         flex_grow: 1
                         scrollable: false
