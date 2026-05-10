@@ -134,7 +134,10 @@ text_sensor:
           value: !lambda return (int)id(${uid}_current_color_temp);
       - script.execute: ${uid}_update_bulb_color
 
-# HS color — HA returns a tuple string like "(120.5, 80.0)"
+# HS color — HA returns a tuple string like "(120.5, 80.0)".
+# Note: HA only populates this attribute when the active color_mode is `hs`.
+# For lights running in `rgb`/`rgbw`/`rgbww` modes (e.g. WLED strips), hs_color
+# is reported as None — the `rgb_color` sensor below derives hue/sat instead.
 - id: ${uid}_ha_hs_color
   platform: homeassistant
   entity_id: ${entity_id}
@@ -150,6 +153,46 @@ text_sensor:
           if (comma != std::string::npos) {
             id(${uid}_current_hue) = atof(x.substr(0, comma).c_str());
             id(${uid}_current_saturation) = atof(x.substr(comma + 1).c_str());
+          }
+      - lvgl.arc.update:
+          id: ${uid}_arc_hue
+          value: !lambda return (int)id(${uid}_current_hue);
+      - lvgl.slider.update:
+          id: ${uid}_saturation_slider
+          value: !lambda return (int)id(${uid}_current_saturation);
+      - script.execute: ${uid}_update_bulb_color
+
+# RGB color — HA returns a tuple string like "(255, 128, 0)".
+# Always present for lights in rgb/rgbw/rgbww color modes. We derive hue/sat
+# from this so the picker stays in sync for WLED-style strips that don't
+# expose hs_color while in rgbw mode.
+- id: ${uid}_ha_rgb_color
+  platform: homeassistant
+  entity_id: ${entity_id}
+  attribute: rgb_color
+  internal: true
+  on_value:
+  - if:
+      condition:
+        lambda: return !x.empty() && x != "None";
+      then:
+      - lambda: |-
+          int r = 0, g = 0, b = 0;
+          if (sscanf(x.c_str(), "(%d, %d, %d)", &r, &g, &b) == 3) {
+            float rf = r / 255.0f, gf = g / 255.0f, bf = b / 255.0f;
+            float mx = std::max({rf, gf, bf});
+            float mn = std::min({rf, gf, bf});
+            float d  = mx - mn;
+            float h = 0.0f;
+            float s = (mx == 0.0f) ? 0.0f : (d / mx) * 100.0f;
+            if (d > 0.0001f) {
+              if (mx == rf)       h = 60.0f * fmod(((gf - bf) / d), 6.0f);
+              else if (mx == gf)  h = 60.0f * (((bf - rf) / d) + 2.0f);
+              else                h = 60.0f * (((rf - gf) / d) + 4.0f);
+              if (h < 0) h += 360.0f;
+            }
+            id(${uid}_current_hue)        = h;
+            id(${uid}_current_saturation) = s;
           }
       - lvgl.arc.update:
           id: ${uid}_arc_hue
