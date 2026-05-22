@@ -1,9 +1,18 @@
 ---
 substitutions:
+  # Set in your top-level YAML to enable a SECOND Enphase IQ Gateway.
+  # Leave empty (default) for single-Envoy installs -- no other changes
+  # required. When set, the four "today" totals below are summed across
+  # both Envoys.
+  envoy_id_2: ""
+
   # Home Assistant sensor entity IDs
   ha_sensor_net_consumption: 'sensor.envoy_${envoy_id}_lifetime_net_energy_consumption'
   ha_sensor_production: 'sensor.envoy_${envoy_id}_lifetime_energy_production'
   ha_sensor_net_production: 'sensor.envoy_${envoy_id}_lifetime_net_energy_production'
+  ha_sensor_net_consumption_2: 'sensor.envoy_${envoy_id_2}_lifetime_net_energy_consumption'
+  ha_sensor_production_2: 'sensor.envoy_${envoy_id_2}_lifetime_energy_production'
+  ha_sensor_net_production_2: 'sensor.envoy_${envoy_id_2}_lifetime_net_energy_production'
 
 # Extend on_ha_connected script (called from loading.yaml when HA connects)
 script:
@@ -20,11 +29,19 @@ script:
           action: recorder.get_statistics
           data_template:
             statistic_ids: >-
-              {{ [
+              {% set ids = [
                 '$ha_sensor_net_consumption',
                 '$ha_sensor_production',
                 '$ha_sensor_net_production'
-              ] }}
+              ] %}
+              {% if '${envoy_id_2}' | length > 0 %}
+                {% set ids = ids + [
+                  '$ha_sensor_net_consumption_2',
+                  '$ha_sensor_production_2',
+                  '$ha_sensor_net_production_2'
+                ] %}
+              {% endif %}
+              {{ ids }}
             start_time: >-
               {{ today_at('00:00:00').isoformat() }}
             period: day
@@ -48,6 +65,11 @@ script:
             {% set net_consumption = get_kwh('$ha_sensor_net_consumption') | float %}
             {% set production = get_kwh('$ha_sensor_production') | float %}
             {% set net_production = get_kwh('$ha_sensor_net_production') | float %}
+            {% if '${envoy_id_2}' | length > 0 %}
+              {% set net_consumption = net_consumption + (get_kwh('$ha_sensor_net_consumption_2') | float) %}
+              {% set production = production + (get_kwh('$ha_sensor_production_2') | float) %}
+              {% set net_production = net_production + (get_kwh('$ha_sensor_net_production_2') | float) %}
+            {% endif %}
             {% set consumption = net_consumption + production - net_production %}
             {{ {'consumption': consumption | round(2), 'net_consumption': net_consumption, 'production': production, 'net_production': net_production} | tojson }}
           on_success:
