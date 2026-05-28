@@ -72,6 +72,14 @@ text_sensor:
               format: "%s"
               args: ['id(esphome_version).state.c_str()']
 
+  - platform: template
+    id: build_timestamp
+    name: 'Build Timestamp'
+    icon: mdi:calendar-clock
+    entity_category: diagnostic
+    lambda: |-
+      return {std::string(__DATE__ " " __TIME__)};
+
   - platform: wifi_info
     mac_address:
       id: mac_address

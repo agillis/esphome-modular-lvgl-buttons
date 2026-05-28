@@ -28,6 +28,9 @@ psram:
 
 preferences:
   flash_write_interval: 5min
+  
+logger:
+  hardware_uart: UART0  
 
 # -------------------------------------------
 # Internal outputs
@@ -105,6 +108,3 @@ display:
     pclk_frequency: 6MHz
     update_interval: never
     auto_clear_enabled: False
-    transform:
-      mirror_x: false
-      mirror_y: false
