@@ -338,6 +338,7 @@ script:
       - lvgl.widget.show: popup_scrim
       - lvgl.widget.show: ${uid}_popup
       - script.execute: ${uid}_picker_update
+      - script.execute: popup_auto_close
 
   # Recolor the tile icon to match bulb state.
   - id: ${uid}_update_bulb_color

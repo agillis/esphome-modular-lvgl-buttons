@@ -44,7 +44,28 @@ image:
         id: kelvin_ring_img
         resize: 300x300
 
+substitutions:
+  # Auto-close popups after this many seconds. "0" disables (default).
+  # Override per-screen in the top-level YAML's substitutions block, e.g.
+  #     substitutions:
+  #       popup_timeout_seconds: "15"
+  popup_timeout_seconds: "0"
+
 script:
+  # Auto-close current popup after popup_timeout_seconds. mode: restart so
+  # callers can re-execute on user interaction (e.g. on_press handlers in the
+  # popup widgets) to defer the close. When popup_timeout_seconds is "0" the
+  # script is a no-op, making this opt-in and zero-cost when unused.
+  - id: popup_auto_close
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return ${popup_timeout_seconds} > 0;'
+          then:
+            - delay: ${popup_timeout_seconds}s
+            - script.execute: popup_close
+
   # Extended by each popup file to hide its own widget.
   - id: popup_close
     then:
