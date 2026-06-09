@@ -152,8 +152,8 @@ lvgl:
           id: ${uid}_popup
           hidden: true
           align: CENTER
-          width: 480
-          height: 480
+          width: 450
+          height: 450
           radius: 12
           bg_color: $bg_color
           bg_opa: COVER
