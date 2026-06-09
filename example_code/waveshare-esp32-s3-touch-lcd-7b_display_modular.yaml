@@ -24,6 +24,8 @@ substitutions:
   # Screen Size
   screen_height: 600
   screen_width: 1024
+  # defaults for popup pages
+  popup_timeout_seconds: '120'  # timeout in seconds  
 
 esphome:
   name: "waveshare-esp32-s3-touch-lcd-7b"

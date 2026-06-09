@@ -188,11 +188,21 @@ The timeout is managed by:
 
 When a user closes the popup manually (tap scrim, click button, etc.), the delay is cancelled automatically.
 
+### Force Close
+
+To immediately close all popups (e.g., before an update or page change):
+
+```yaml
+- script.execute: popup_force_close
+```
+
+This will hide the scrim and all popups instantly, cancelling any active timeout.
+
 ---
 
 ## Color Picker (common/color_picker.yaml)
 
-Reusable per-instance HSV/Kelvin color picker popup. Size: 480×480px (centered on screen).
+Reusable per-instance HSV/Kelvin color picker popup. Size: 450×450px (centered on screen).
 
 ### Variables
 

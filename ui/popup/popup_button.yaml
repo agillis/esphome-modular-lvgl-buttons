@@ -44,3 +44,4 @@ lvgl:
                     then:
                       - lvgl.widget.show: popup_scrim
                       - lvgl.widget.show: ${popup_id}
+                      - script.execute: popup_start_timeout

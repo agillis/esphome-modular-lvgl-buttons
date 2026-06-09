@@ -20,6 +20,8 @@ substitutions:
   display_night_minute: "0"    # Minute for night mode (0-59)
   display_backlight_timeout_always_enabled: "false"  # Set true to dim/off in all modes, not just Night
   display_backlight_timeout_initial: "5"  # Initial backlight timeout in minutes (-1 to disable)
+  # defaults for popup pages
+  popup_timeout_seconds: '120'  # timeout in seconds  
 
 esphome:
   name: "waveshare-p4-lcd-7"

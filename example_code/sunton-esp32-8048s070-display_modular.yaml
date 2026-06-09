@@ -24,6 +24,8 @@ substitutions:
   # Screen Size
   screen_height: 480
   screen_width: 800
+  # defaults for popup pages
+  popup_timeout_seconds: '120'  # timeout in seconds  
 
 esphome:
   name: "sunton-esp32-8048s070"

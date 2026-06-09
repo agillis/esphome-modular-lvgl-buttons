@@ -22,6 +22,8 @@ substitutions:
   touchscreen_night_minute: "0"    # Minute for night mode (0-59)
   # Set touchscreen idle timeout - In night mode back light goes off after this amount of time
   touchscreen_idle_timeout: "60s"
+  # defaults for popup pages
+  popup_timeout_seconds: '120'  # timeout in seconds  
 
 esphome:
   name: "guition-esp32-p4-jc8012p4a1"

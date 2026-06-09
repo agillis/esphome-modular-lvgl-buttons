@@ -40,6 +40,12 @@
 # The timeout is automatically cancelled when `popup_close` is called (e.g., when
 # the user taps outside the popup or clicks a close button).
 #
+# Force close
+# -----------
+# To immediately close all popups (e.g., before an update), call:
+#
+#   - script.execute: popup_force_close
+#
 # Z-order note: widgets render in include order. This file must be included
 # BEFORE any popup-consuming file so the scrim renders below all popups.
 #
@@ -68,14 +74,25 @@ image:
 
 script:
   # Start popup auto-close timeout. Call this whenever a popup opens.
+  # mode: restart — reopening a popup restarts the countdown instead of being
+  # ignored while a previous timeout is still pending.
   - id: popup_start_timeout
+    mode: restart
     then:
       - delay: !lambda 'return id(popup_timeout_seconds) * 1000;'
+      - script.execute: popup_close
+
+  # Force-close all popups immediately (no delay, cancels timeout if active).
+  # Call this before performing updates or page changes.
+  - id: popup_force_close
+    then:
       - script.execute: popup_close
 
   # Extended by each popup file to hide its own widget.
   - id: popup_close
     then:
+      # Cancel any pending auto-close timeout (no-op if it already fired).
+      - script.stop: popup_start_timeout
       - lvgl.widget.hide: popup_scrim
 
 lvgl:

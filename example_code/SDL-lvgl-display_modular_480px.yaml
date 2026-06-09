@@ -32,6 +32,9 @@ substitutions:
   screen_height: '480'
   screen_width: '480'
 
+  # defaults for popup pages
+  popup_timeout_seconds: '120'  # timeout in seconds
+
 esphome:
   name: sdl-480px-test
   friendly_name: SDL 480px-test
