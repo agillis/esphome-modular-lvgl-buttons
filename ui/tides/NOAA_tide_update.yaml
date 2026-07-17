@@ -48,6 +48,7 @@ http_request:
 defaults:
   noaa_unit_system: english
   noaa_unit_of_measurement: ft  # "ft" for english, "m" for metric
+  noaa_max_retries: '4'         # retry attempts on NOAA failure (backoff: 15/30/60/120s)
 
 # -------------------------------------------
 # Global Variables
@@ -67,6 +68,23 @@ globals:
     restore_value: false
     initial_value: '0'
   - id: noaa_next_tide_is_high
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  # Retry/backoff state for NOAA fetches
+  - id: noaa_retry_count
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: noaa_fetch_ok
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: noaa_datums_retry_count
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: noaa_datums_ok
     type: bool
     restore_value: false
     initial_value: 'false'
@@ -253,6 +271,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(noaa_datums_ok) = false;
                   if (response->status_code != 200) {
                     ESP_LOGE("noaa", "NOAA Datums API returned HTTP %d", response->status_code);
                     return;
@@ -301,8 +320,80 @@ script:
                     ESP_LOGI("noaa", "Tidal datums (relative to MLLW): MLW=%.2f, MHW=%.2f",
                       mlw_mllw, mhw_mllw);
 
+                    // Success — clear the datums retry counter
+                    id(noaa_datums_ok) = true;
+                    id(noaa_datums_retry_count) = 0;
                     return true;
                   });
+              - if:
+                  condition:
+                    lambda: 'return !id(noaa_datums_ok);'
+                  then:
+                    - logger.log:
+                        level: WARN
+                        format: "NOAA datums unusable (bad status or missing values); scheduling retry"
+                    - script.execute: noaa_schedule_datums_retry
+          on_error:
+            then:
+              - logger.log:
+                  level: WARN
+                  format: "NOAA datums request failed (no response); scheduling retry"
+              - script.execute: noaa_schedule_datums_retry
+
+  # Retry helper: exponential backoff, then re-run fetch_noaa_tides.
+  # Triggered on any failed tide fetch (non-200 like 504, empty body, a
+  # connection error, or a 200 with no usable predictions). Gives up after
+  # ${noaa_max_retries} attempts and keeps the last good data on screen; the
+  # 5-minute interval will try again later.
+  - id: noaa_schedule_retry
+    mode: restart
+    then:
+      - lambda: 'id(noaa_retry_count) += 1;'
+      - if:
+          condition:
+            lambda: 'return id(noaa_retry_count) <= ${noaa_max_retries};'
+          then:
+            - delay: !lambda |-
+                // Exponential backoff: 15, 30, 60, 120s (capped) per attempt.
+                int secs = 15;
+                for (int i = 1; i < id(noaa_retry_count) && secs < 120; i++) secs *= 2;
+                if (secs > 120) secs = 120;
+                ESP_LOGW("noaa", "NOAA retry %d/${noaa_max_retries} in %ds",
+                         id(noaa_retry_count), secs);
+                return (uint32_t) secs * 1000;
+            - script.execute: fetch_noaa_tides
+          else:
+            - logger.log:
+                level: WARN
+                format: "NOAA tide fetch failed after %d attempts; keeping last data, will retry on the next 5-min cycle"
+                args: ['id(noaa_retry_count)']
+            - lambda: 'id(noaa_retry_count) = 0;'
+
+  # Retry helper for the one-shot datums fetch (MHW/MLW). Same backoff.
+  # There is no 5-minute fallback for datums, so after ${noaa_max_retries}
+  # attempts it gives up until the next boot.
+  - id: noaa_schedule_datums_retry
+    mode: restart
+    then:
+      - lambda: 'id(noaa_datums_retry_count) += 1;'
+      - if:
+          condition:
+            lambda: 'return id(noaa_datums_retry_count) <= ${noaa_max_retries};'
+          then:
+            - delay: !lambda |-
+                int secs = 15;
+                for (int i = 1; i < id(noaa_datums_retry_count) && secs < 120; i++) secs *= 2;
+                if (secs > 120) secs = 120;
+                ESP_LOGW("noaa", "NOAA datums retry %d/${noaa_max_retries} in %ds",
+                         id(noaa_datums_retry_count), secs);
+                return (uint32_t) secs * 1000;
+            - script.execute: fetch_noaa_datums
+          else:
+            - logger.log:
+                level: WARN
+                format: "NOAA datums fetch failed after %d attempts; MHW/MLW unavailable until next boot"
+                args: ['id(noaa_datums_retry_count)']
+            - lambda: 'id(noaa_datums_retry_count) = 0;'
 
   # Main script: Fetch tide predictions from NOAA CO-OPS API
   - id: fetch_noaa_tides
@@ -345,6 +436,7 @@ script:
                 on_response:
                   then:
                     - lambda: |-
+                        id(noaa_fetch_ok) = false;
                         if (response->status_code != 200) {
                           ESP_LOGE("noaa", "NOAA API returned HTTP %d", response->status_code);
                           return;
@@ -475,8 +567,25 @@ script:
                           // Recalculate tide percentage
                           id(tide_percentage).update();
 
+                          // Success — clear the retry counter
+                          id(noaa_fetch_ok) = true;
+                          id(noaa_retry_count) = 0;
                           return true;
                         });
+                    - if:
+                        condition:
+                          lambda: 'return !id(noaa_fetch_ok);'
+                        then:
+                          - logger.log:
+                              level: WARN
+                              format: "NOAA tide data unusable (bad status or no predictions); scheduling retry"
+                          - script.execute: noaa_schedule_retry
+                on_error:
+                  then:
+                    - logger.log:
+                        level: WARN
+                        format: "NOAA tide request failed (no response); scheduling retry"
+                    - script.execute: noaa_schedule_retry
           else:
             - logger.log:
                 level: WARN
