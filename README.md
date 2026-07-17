@@ -216,50 +216,64 @@ Then `esphome run your-config.yaml` — a window opens simulating the display. S
 
 ## Supported hardware
 
+One hardware file per display, in [`hardware/`](hardware/). Include the one matching your
+device (`hardware: !include esphome-modular-lvgl-buttons/hardware/<model>.yaml`). The
+**Driver** column is the ESPHome display platform each file uses.
+
 ### Waveshare
 
-| Model | Size | Resolution |
-|---|---|---|
-| `waveshare-esp32-s3-touch-lcd-2.8c` | 2.8" | 320×240 |
-| `waveshare-esp32-s3-touch-lcd-4-v4` | 4.0" | 480×480 |
-| `waveshare-esp32-s3-touch-lcd-4.3` | 4.3" | 800×480 |
-| `waveshare-esp32-s3-touch-lcd-7` | 7.0" | 800×480 |
-| `waveshare-esp32-s3-touch-lcd-7B` | 7.0" | 800×480 |
-| `waveshare-esp32-p4-wifi6-touch-lcd-4b` | 4.0" | 720×720 |
-| `waveshare-esp32-p4-86-panel` | 4.0" | 720×720 |
-| `waveshare-esp32-p4-wifi6-touch-lcd-7` | 7.0" | 1024×600 |
-| `waveshare-esp32-p4-wifi6-touch-lcd-7b` | 7.0" | 1024×600 |
-| `waveshare-esp32-p4-wifi6-touch-lcd-10.1` | 10.1" | 800×1280 |
+| Model | Size | Resolution | Driver |
+|---|---|---|---|
+| `waveshare-esp32-s3-touch-lcd-2.8c` | 2.8" round | 480×480 | `st7701` |
+| `waveshare-esp32-s3-touch-lcd-3.5` | 3.5" | 320×480 | `mipi_spi` |
+| `waveshare-esp32-s3-touch-lcd-3.5b` | 3.5" | 480×320 | `mipi_spi` |
+| `waveshare-esp32-s3-touch-lcd-4` | 4.0" | 480×480 | `st7701` |
+| `waveshare-esp32-s3-touch-lcd-4-v4` | 4.0" | 480×480 | `mipi_rgb` |
+| `waveshare-esp32-s3-touch-lcd-4.3` | 4.3" | 800×480 | `rpi_dpi_rgb` |
+| `waveshare-esp32-s3-touch-lcd-7` | 7.0" | 800×480 | `mipi_rgb` |
+| `waveshare-esp32-s3-touch-lcd-7B` | 7.0" | 1024×600 | `mipi_rgb` |
+| `waveshare-esp32-p4-86-panel` | 86mm | 720×720 | `mipi_dsi` |
+| `waveshare-esp32-p4-wifi6-touch-lcd-3.4c` | 3.4" | 800×800 | `mipi_dsi` |
+| `waveshare-esp32-p4-wifi6-touch-lcd-4b` | 4.0" | 720×720 | `mipi_dsi` |
+| `waveshare-esp32-p4-wifi6-touch-lcd-7` | 7.0" | 720×1280 | `mipi_dsi` |
+| `waveshare-esp32-p4-wifi6-touch-lcd-7b` | 7.0" | 1024×600 | `mipi_dsi` |
+| `waveshare-esp32-p4-wifi6-touch-lcd-10.1` | 10.1" | 800×1280 | `mipi_dsi` |
 
 ### Guition
 
-| Model | Size | Resolution |
-|---|---|---|
-| `guition-esp32-s3-4848s040` | 4.0" | 480×480 |
-| `guition-esp32-jc4827w543` | 4.3" | 272×480 |
-| `guition-esp32-jc8048w535` | 3.5" | 480×320 |
-| `guition-esp32-jc8048w550` | 5.0" | 480×800 |
-| `guition-esp32-p4-jc4880p443` | 4.3" | 480×800 |
-| `guition-esp32-p4-jc8012p4a1` | 8.0" | 800×1280 |
+| Model | Size | Resolution | Driver |
+|---|---|---|---|
+| `guition-esp32-s3-4848s040` | 4.0" | 480×480 | `mipi_rgb` |
+| `guition-esp32-jc4827w543` | 4.3" | 480×272 | `qspi_dbi` |
+| `guition-esp32-jc8048w535` | 3.5" | 480×320 | `axs15231` |
+| `guition-esp32-jc8048w550` | 5.0" | 800×480 | `mipi_rgb` |
+| `guition-esp32-p4-jc1060p470` | 7.0" | 1024×600 | `mipi_dsi` |
+| `guition-esp32-p4-jc1060p470c` | 7.0" | 1024×600 | `mipi_dsi` |
+| `guition-esp32-p4-jc4880p443` | 4.3" | 480×800 | `mipi_dsi` |
+| `guition-esp32-p4-jc8012p4a1` | 10.1" | 800×1280 | `mipi_dsi` |
 
 ### Sunton
 
-| Model | Size | Resolution |
-|---|---|---|
-| `sunton-esp32-2432s028` | 2.8" | 320×240 |
-| `sunton-esp32-2432s028R` | 2.8" | 320×240 |
-| `sunton-esp32-4827s032R` | 3.2" | 480×320 |
-| `sunton-esp32-8048s050` | 5.0" | 480×800 |
-| `sunton-esp32-8048s070` | 7.0" | 480×800 |
+| Model | Size | Resolution | Driver |
+|---|---|---|---|
+| `sunton-esp32-2432s028` | 2.8" | 240×320 | `mipi_spi` |
+| `sunton-esp32-2432s028R` | 2.8" | 320×240 | `ili9xxx` |
+| `sunton-esp32-4827s032R` | 3.2" | 480×320 | `rpi_dpi_rgb` |
+| `sunton-esp32-8048s050` | 5.0" | 800×480 | `rpi_dpi_rgb` |
+| `sunton-esp32-8048s070` | 7.0" | 800×480 | `mipi_rgb` |
 
 ### Other
 
-| Model | Size | Resolution |
-|---|---|---|
-| `esp32-s3-box-3` | 2.4" | 320×240 |
-| `lilygo-tdisplays3` | 1.9" | 170×320 |
-| `elecrow-esp32-7inch` | 7.0" | 800×480 |
-| `SDL-lvgl` | variable | Desktop simulation |
+| Model | Size | Resolution | Driver |
+|---|---|---|---|
+| `esp32-s3-box-3` | 2.4" | 320×240 | `ili9xxx` |
+| `lilygo-tdisplays3` | 1.9" | 170×320 | `ili9xxx` |
+| `elecrow-esp32-7inch` | 7.0" | 800×480 | `rpi_dpi_rgb` |
+| `SDL-lvgl` | desktop | variable | `host` (SDL) |
+
+`hardware/generic.yaml` is a starting template for boards not listed above.
+Audio/voice add-ons (include *alongside* a screen, not standalone):
+`hardware/media_player-voice_assistant.yaml` and `hardware/guition-esp32-jc4827w543-audio.yaml`.
 
 ---
 
