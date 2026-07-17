@@ -8,7 +8,7 @@ substitutions:
   screen_width: 480
 
 esphome:
-  min_version: 2026.4.0
+  min_version: 2026.7.0
   project:
     name: "Guition.ESP32-jc8048w535"
     version: "1.0"

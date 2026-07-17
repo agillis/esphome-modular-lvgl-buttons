@@ -1,7 +1,7 @@
 # esphome-modular-lvgl-buttons
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![ESPHome](https://img.shields.io/badge/ESPHome-2026.5.0+-blue)](https://esphome.io)
+[![ESPHome](https://img.shields.io/badge/ESPHome-2026.7.0+-blue)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Integration-41BDF5)](https://www.home-assistant.io/)
 
 A modular component library for building touchscreen smart home control panels using [ESPHome](https://esphome.io/) + [LVGL](https://lvgl.io/) on cheap ESP32 displays.
@@ -28,7 +28,7 @@ Your device YAML composes a panel by including one hardware file, the shared inf
 
 ### 1. Prerequisites
 
-ESPHome 2026.5.0 or later. For SVG image support (required by solar/tides modules):
+ESPHome 2026.7.0 or later (the `image:` component uses the new `platform: file` form introduced in 2026.7.0). For SVG image support (required by solar/tides modules):
 
 ```bash
 pip install cairosvg

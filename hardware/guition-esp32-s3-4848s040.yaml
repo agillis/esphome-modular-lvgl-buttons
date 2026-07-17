@@ -9,7 +9,7 @@ substitutions:
   screen_width: 480
 
 esphome:
-  min_version: 2026.5.0
+  min_version: 2026.7.0
   project:
     name: "Guition.ESP32-S3-4848S040"
     version: "1.0"

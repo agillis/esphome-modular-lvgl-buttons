@@ -4,7 +4,7 @@
 ---
 
 esphome:
-  min_version: 2026.5.0
+  min_version: 2026.7.0
   platformio_options:
     build_unflags: -Werror=all
     board_build.flash_mode: dio

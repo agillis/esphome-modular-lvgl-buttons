@@ -11,7 +11,7 @@ substitutions:
   screen_width: ${800 if rotation | default("0") not in ["90", "270"] else 1280}
 
 esphome:
-  min_version: 2026.5.0
+  min_version: 2026.7.0
   project:
     name: "Waveshare.ESP32-P4-WIFI6-Touch-LCD-10-1"
     version: "1.0"

@@ -11,7 +11,7 @@ substitutions:
   screen_width: ${480 if rotation | default("90") not in ["90", "270"] else 800}
 
 esphome:
-  min_version: 2026.4.0
+  min_version: 2026.7.0
   project:
     name: "Guition.ESP32-P4-jc4880p443"
     version: "1.0"

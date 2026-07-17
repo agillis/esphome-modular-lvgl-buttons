@@ -291,4 +291,4 @@ ESPHome uses Jinja2 but with **different delimiters** than standard Jinja. Getti
 - **One include per entity**: a device YAML needs only a single `!include`. All internal dependencies (detail page, globals, scripts) are wired via `packages:` inside the component files.
 - **Theme vars only**: use `$button_on_color`, `$button_off_color`, `$icon_on_color`, `$icon_off_color`, `$label_on_color`, `$label_off_color`, `$icon_font` — never hardcode colors or fonts in component files.
 - **Hardware agnostic**: component files must not hardcode pixel coordinates or assume a specific screen resolution. Layout must work across all supported displays (ranging from 320×240 to 800×1280). Use LVGL alignment properties (`align`, `grid_cell_*`, percentage-based widths/heights) instead of fixed x/y values wherever possible. The current development hardware is the Waveshare ESP32-S3-Touch-LCD-4 (480×480) but this is not a constraint.
-- **ESPHome 2026.5.0+** required.
+- **ESPHome 2026.7.0+** required (the `image:` component uses the new `platform: file` form introduced in 2026.7.0).
