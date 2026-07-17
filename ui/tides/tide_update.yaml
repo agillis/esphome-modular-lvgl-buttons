@@ -5,19 +5,26 @@
 # Graphics and Fonts
 # -------------------------------------------
 image:
-  rgb565:
-    alpha_channel:
-      - file: esphome-modular-lvgl-buttons/ui/tides/assets/images/tide_pointer.svg
-        id: tide_pointer
-        resize: 200x88  # 2.272  - 22x22
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/tide_pointer.svg
+    id: tide_pointer
+    resize: 200x88  # 2.272  - 22x22
 
-      - file: esphome-modular-lvgl-buttons/ui/tides/assets/images/high_tide.svg
-        id: high_tide
-        resize: 29x32
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/high_tide.svg
+    id: high_tide
+    resize: 29x32
 
-      - file: esphome-modular-lvgl-buttons/ui/tides/assets/images/low_tide.svg
-        id: low_tide
-        resize: 29x32
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/low_tide.svg
+    id: low_tide
+    resize: 29x32
 
 font:
   - file: "gfonts://Roboto@700"

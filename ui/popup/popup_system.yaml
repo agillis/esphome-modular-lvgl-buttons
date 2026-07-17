@@ -60,17 +60,21 @@ globals:
     initial_value: '${popup_timeout_seconds}'
 
 image:
-  rgb565:
-    alpha_channel:
-      - file: 'esphome-modular-lvgl-buttons/assets/images/hue_ring.svg'
-        id: hue_ring_img
-        # ESPHome rasterizes the SVG via resvg_py at compile time to this size.
-        # Bump both numbers (and the matching arc widths in consumers) to
-        # render at higher resolution.
-        resize: 300x300
-      - file: 'esphome-modular-lvgl-buttons/assets/images/kelvin_ring.svg'
-        id: kelvin_ring_img
-        resize: 300x300
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: 'esphome-modular-lvgl-buttons/assets/images/hue_ring.svg'
+    id: hue_ring_img
+    # ESPHome rasterizes the SVG via resvg_py at compile time to this size.
+    # Bump both numbers (and the matching arc widths in consumers) to
+    # render at higher resolution.
+    resize: 300x300
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: 'esphome-modular-lvgl-buttons/assets/images/kelvin_ring.svg'
+    id: kelvin_ring_img
+    resize: 300x300
 
 script:
   # Start popup auto-close timeout. Call this whenever a popup opens.

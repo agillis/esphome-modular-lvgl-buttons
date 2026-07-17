@@ -122,7 +122,6 @@ display:
 # Special LVGL settings required for this display
 lvgl:
   rotation: ${rotation | default("180")}
-  byte_order: little_endian
 
 # -------------------------------------------
 # Audio devices

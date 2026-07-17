@@ -674,29 +674,42 @@ lvgl:
 # Graphics and Fonts
 #-------------------------------------------
 image:
-  rgb565:
-    alpha_channel:
-      # clock icon not part of solar_icons package
-      - file: esphome-modular-lvgl-buttons/assets/images/clock.svg
-        id: clock_icon_60
-        resize: 60x60
-      # house_icon_60 and produced_icon_60 now come from solar_icons_60 package
-      # Arrow images for the Enphase-style energy flow diagram
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_gray.svg
-        id: arrow_right_gray
-        resize: 25x15
+  # clock icon not part of solar_icons package
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/clock.svg
+    id: clock_icon_60
+    resize: 60x60
+  # house_icon_60 and produced_icon_60 now come from solar_icons_60 package
+  # Arrow images for the Enphase-style energy flow diagram
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_gray.svg
+    id: arrow_right_gray
+    resize: 25x15
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_green.svg
-        id: arrow_right_green
-        resize: 25x15
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_green.svg
+    id: arrow_right_green
+    resize: 25x15
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_blue.svg
-        id: arrow_right_blue
-        resize: 25x15
-      # Weather placeholder icon
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/unknown.svg
-        id: unknown_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_blue.svg
+    id: arrow_right_blue
+    resize: 25x15
+  # Weather placeholder icon
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/unknown.svg
+    id: unknown_45
+    resize: 45x45
 
 font:
   - file: "esphome-modular-lvgl-buttons/assets/fonts/epVisuelt-Regular.ttf"

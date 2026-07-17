@@ -135,7 +135,6 @@ display:
 # Special LVGL settings required for this display
 lvgl:
   rotation: ${rotation | default("90")}
-  byte_order: little_endian
 
 # -------------------------------------------
 # Audio - speaker/mic

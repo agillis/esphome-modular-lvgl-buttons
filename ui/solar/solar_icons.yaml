@@ -1,55 +1,92 @@
 ---
 image:
-  rgb565:
-    alpha_channel:
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/house.svg
-        id: house_icon_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/house.svg
+    id: house_icon_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/grid_icon.svg
-        id: grid_icon_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/grid_icon.svg
+    id: grid_icon_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/produced_icon.svg
-        id: produced_icon_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/produced_icon.svg
+    id: produced_icon_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/down_arrow.svg
-        id: down_arrow_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/down_arrow.svg
+    id: down_arrow_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/up_arrow.svg
-        id: up_arrow_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/up_arrow.svg
+    id: up_arrow_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery.svg
-        id: battery_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery.svg
+    id: battery_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/grid_ok.svg
-        id: grid_ok_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/grid_ok.svg
+    id: grid_ok_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/grid_down.svg
-        id: grid_down_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/grid_down.svg
+    id: grid_down_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_100.svg
-        id: battery_100_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_100.svg
+    id: battery_100_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_80.svg
-        id: battery_80_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_80.svg
+    id: battery_80_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_60.svg
-        id: battery_60_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_60.svg
+    id: battery_60_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_30.svg
-        id: battery_30_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_30.svg
+    id: battery_30_${size}
+    resize: ${size}x${size}
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_10.svg
-        id: battery_10_${size}
-        resize: ${size}x${size}
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_10.svg
+    id: battery_10_${size}
+    resize: ${size}x${size}

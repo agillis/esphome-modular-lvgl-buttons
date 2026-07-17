@@ -722,76 +722,137 @@ lvgl:
 # Graphics and Fonts
 #-------------------------------------------
 image:
-  rgb565:
-    alpha_channel:
-      # clock icon not part of solar_icons package
-      - file: esphome-modular-lvgl-buttons/assets/images/clock.svg
-        id: clock_icon_60
-        resize: 60x60
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/house.svg
-        id: house_icon_60
-        resize: 60x60
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/produced_icon.svg
-        id: produced_icon_60
-        resize: 60x60
+  # clock icon not part of solar_icons package
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/clock.svg
+    id: clock_icon_60
+    resize: 60x60
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/house.svg
+    id: house_icon_60
+    resize: 60x60
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/produced_icon.svg
+    id: produced_icon_60
+    resize: 60x60
 
-      # Arrow images for the Enphase-style energy flow diagram
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_gray.svg
-        id: arrow_right_gray
-        resize: 25x15
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_green.svg
-        id: arrow_right_green
-        resize: 25x15
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_blue.svg
-        id: arrow_right_blue
-        resize: 25x15
+  # Arrow images for the Enphase-style energy flow diagram
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_gray.svg
+    id: arrow_right_gray
+    resize: 25x15
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_green.svg
+    id: arrow_right_green
+    resize: 25x15
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/arrow_right_blue.svg
+    id: arrow_right_blue
+    resize: 25x15
 
-      # Weather icons
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/nt_clear.svg
-        id: clear_night_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/cloudy.svg
-        id: cloudy_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/tstorms.svg
-        id: exceptional_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/fog.svg
-        id: fog_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/sleet.svg
-        id: hail_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/chancetstorms.svg
-        id: lightning_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/tstorms.svg
-        id: lightning_rainy_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/partlycloudy.svg
-        id: partlycloudy_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/rain.svg
-        id: pouring_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/chancerain.svg
-        id: rainy_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/snow.svg
-        id: snowy_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/chancesleet.svg
-        id: snowy_rainy_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/sunny.svg
-        id: sunny_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/windy.svg
-        id: windy_45
-        resize: 45x45
-      - file: esphome-modular-lvgl-buttons/ui/weather/assets/images/unknown.svg
-        id: unknown_45
-        resize: 45x45
+  # Weather icons
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/nt_clear.svg
+    id: clear_night_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/cloudy.svg
+    id: cloudy_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/tstorms.svg
+    id: exceptional_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/fog.svg
+    id: fog_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/sleet.svg
+    id: hail_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/chancetstorms.svg
+    id: lightning_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/tstorms.svg
+    id: lightning_rainy_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/partlycloudy.svg
+    id: partlycloudy_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/rain.svg
+    id: pouring_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/chancerain.svg
+    id: rainy_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/snow.svg
+    id: snowy_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/chancesleet.svg
+    id: snowy_rainy_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/sunny.svg
+    id: sunny_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/windy.svg
+    id: windy_45
+    resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/weather/assets/images/unknown.svg
+    id: unknown_45
+    resize: 45x45
 
 # Weather condition to icon mapping
 mapping:

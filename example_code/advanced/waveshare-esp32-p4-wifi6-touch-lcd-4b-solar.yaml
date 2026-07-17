@@ -66,10 +66,6 @@ logger:
     lvgl: info
   hardware_uart: UART0
 
-image:
-  defaults:
-    byte_order: little_endian
-
 script:
   - id: time_update
     then:

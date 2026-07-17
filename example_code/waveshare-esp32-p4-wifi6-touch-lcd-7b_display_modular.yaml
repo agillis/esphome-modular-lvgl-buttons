@@ -38,12 +38,6 @@ logger:
     lvgl: info
   hardware_uart: UART0
 
-# Some screens need little_endian byte order and some need big_endian
-# this sets the byte order for all the images loaded in this file and the packages as well
-image:
-  defaults:
-    byte_order: little_endian
-
 # Time update script - This is run once per second. Use it to update any time related labels.
 script:
   # --------------------------------------------------------------------------

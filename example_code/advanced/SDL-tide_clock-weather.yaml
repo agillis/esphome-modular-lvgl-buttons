@@ -30,7 +30,6 @@ substitutions:
   # Screen Size
   screen_height: '480'
   screen_width: '800'
-  byte_order: little_endian
 
 esphome:
   name: "tideweather-display"

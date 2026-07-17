@@ -1,12 +1,6 @@
 ---
 # Substitution variables used through the codebase
 
-external_components:
-  - source: github://pr#12312
-    components: [font, image, lvgl]
-    refresh: 1h
-
-
 substitutions:
   icon_font: mdi_icons_40
   text_font: nunito_20

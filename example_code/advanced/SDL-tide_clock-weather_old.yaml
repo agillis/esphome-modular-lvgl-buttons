@@ -1,8 +1,3 @@
-external_components:
-  - source: github://pr#12312
-    components: [font, image, lvgl]
-    refresh: 1h
-
 # Substitution variables used through the codebase
 substitutions:
   icon_font: mdi_icons_40
@@ -34,7 +29,6 @@ substitutions:
   # Screen Size
   screen_height: '480'
   screen_width: '800'
-  byte_order: little_endian
 
 esphome:
   name: "tideweather-display"

@@ -1,9 +1,4 @@
 ---
-external_components:
-  - source: github://pr#12312
-    components: [font, image, lvgl]
-    refresh: 1h
-
 host:
   mac_address: "62:23:45:AF:B3:06"
 
@@ -43,11 +38,12 @@ logger:
   level: debug
 
 image:
-  rgb565:
-    alpha_channel:
-      - file: esphome-modular-lvgl-buttons/ui/tides/assets/images/tide_pointer.svg
-        id: tide_pointer
-        resize: 200x88  # 2.272  - 22x22
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/tide_pointer.svg
+    id: tide_pointer
+    resize: 200x88  # 2.272  - 22x22
 font:
   - file: "gfonts://Roboto@700"
     id: roboto30_bold

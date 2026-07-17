@@ -142,7 +142,6 @@ display:
 # Special LVGL settings required for this display
 lvgl:
   rotation: ${rotation | default("0")}
-  byte_order: little_endian
   buffer_size: 100%
 
 # -------------------------------------------

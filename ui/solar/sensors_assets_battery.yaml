@@ -102,36 +102,58 @@ binary_sensor:
 
 # Battery icons - included automatically
 image:
-  rgb565:
-    alpha_channel:
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery.svg
-        id: battery_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery.svg
+    id: battery_45
+    resize: 45x45
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/grid_ok.svg
-        id: grid_ok_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/grid_ok.svg
+    id: grid_ok_45
+    resize: 45x45
 
-      - file: esphome-modular-lvgl-buttons/assets/images/solar/grid_down.svg
-        id: grid_down_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/solar/grid_down.svg
+    id: grid_down_45
+    resize: 45x45
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_100.svg
-        id: battery_100_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_100.svg
+    id: battery_100_45
+    resize: 45x45
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_80.svg
-        id: battery_80_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_80.svg
+    id: battery_80_45
+    resize: 45x45
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_60.svg
-        id: battery_60_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_60.svg
+    id: battery_60_45
+    resize: 45x45
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_30.svg
-        id: battery_30_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_30.svg
+    id: battery_30_45
+    resize: 45x45
 
-      - file: esphome-modular-lvgl-buttons/assets/images/battery/battery_10.svg
-        id: battery_10_45
-        resize: 45x45
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/assets/images/battery/battery_10.svg
+    id: battery_10_45
+    resize: 45x45
