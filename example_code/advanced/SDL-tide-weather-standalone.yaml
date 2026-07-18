@@ -1,0 +1,669 @@
+---
+# ============================================================================
+# DEMO: Tide clock + weather — fully standalone (no Home Assistant), SDL build
+# ============================================================================
+# A desktop (SDL) demo of a self-contained panel:
+#   - Weather direct from Pirate Weather      (ui/weather/pirate_weather.yaml)
+#   - Tides direct from NOAA                   (ui/tides/NOAA_tide_update.yaml)
+#   - Time from the host clock (NTP on real hardware; sntp is MCU-only)
+#   - Neutral boot screen, boots straight to the main page
+#
+# Requires secrets.yaml (one level above the repo) with:
+#   pirate_weather_key, latitude, longitude
+# Get a free Pirate Weather key at https://pirateweather.net.
+#
+# Run from the repo parent:  esphome run SDL-tide-weather-standalone.yaml
+# ============================================================================
+
+# Substitution variables used through the codebase
+substitutions:
+  icon_font: mdi_icons_40
+  text_font: nunito_20
+  text_color: black
+  bg_color: white
+  button_on_color: "ep_orange"
+  button_off_color: "very_dark_gray"
+  icon_on_color: "yellow"
+  icon_off_color: "gray"
+  label_on_color: "white"
+  label_off_color: "gray"
+  button_text_color: "white"
+
+  # SDL desktop window size (matches the P4-7b 1024x600 panel)
+  screen_width: '1024'
+  screen_height: '600'
+
+  # LCD back light modes - Code in backlight_time.yaml
+  display_daytime_brightness: "100%"
+  display_nighttime_brightness: "50%"
+  display_night_hour: "0"      # Hour for night mode (0-23)
+  display_night_minute: "0"    # Minute for night mode (0-59)
+  display_backlight_timeout_always_enabled: "false"  # Set true to dim/off in all modes, not just Night
+  display_backlight_timeout_initial: "5"  # Initial backlight timeout in minutes (-1 to disable)
+
+
+esphome:
+  name: "tide-weather-standalone-sdl"
+  friendly_name: "Tide Clock + Weather — Standalone (SDL)"
+  on_boot:
+    - priority: 400
+      then:
+        - script.execute: update_loading_page
+    # Standalone (no HA): once the clock is set, start the data fetches and
+    # dismiss the boot screen. Weather self-triggers inside its own module.
+    - priority: -200
+      then:
+        # Land directly on the main page (info_screen is the first page in the
+        # merged list; without this LVGL would show it at boot).
+        - lvgl.page.show: main_page
+        - wait_until:
+            condition:
+              lambda: 'return id(system_time).now().is_valid();'
+            timeout: 90s
+        - script.execute: fetch_noaa_datums
+        - script.execute: fetch_noaa_tides
+
+logger:
+  level: debug
+  logs:
+    lvgl: info
+
+# SDL/host build needs http_request declared here (real hardware pulls it in
+# from the hardware file). HTTPS on host needs the OpenSSL dev headers.
+http_request:
+  verify_ssl: false
+  ca_certificate_path: /etc/ssl/certs/ca-certificates.crt
+
+# host time platform needs api on the SDL/host build (the P4 uses sntp and no api)
+api:
+
+# Time update script - This is run once per second. Use it to update any time related labels.
+script:
+  # --------------------------------------------------------------------------
+  # This script is called once per minute.
+  # Any packages in this library will !extend time_update to update their own labels.
+  # You can add code here to update your own custom labels.
+  # --------------------------------------------------------------------------
+  - id: time_update
+    then:
+      - lambda: |-
+          // No operation
+
+packages:
+  # Generic configuration for ESP32 screens
+  # SDL has no Wi-Fi
+  # wifi: !include esphome-modular-lvgl-buttons/common/wifi.yaml  # SDL has no Wi-Fi
+  # Enable OTA updates with a status screen
+  # ota_screen: !include esphome-modular-lvgl-buttons/common/ota.yaml  # no OTA on host
+  # All the colors
+  theme:  !include esphome-modular-lvgl-buttons/common/theme/index.yaml
+  # Some nice basic fonts
+  # 1000s of glyphs
+  # Some basic sensors
+  sensors: !include esphome-modular-lvgl-buttons/common/sensors_base_sdl.yaml
+  # Styles + Themes
+  # Use this theme for debugging
+  # theme:  !include esphome-modular-lvgl-buttons/common/theme/index_debug.yaml  # uncomment to enable debug outlines
+  # Include if your touch screen has a backlight. Also sets the time from HA
+  backlight: !include esphome-modular-lvgl-buttons/common/backlight_time.yaml
+
+  # Hardware description file
+  hardware: !include esphome-modular-lvgl-buttons/hardware/SDL-lvgl.yaml
+  
+  # Basic boot screen with ESPHome logo and device diagnostic info
+  # Neutral boot screen (no Home Assistant logo/text; also drops the HA api: block)
+  loading_screen: !include
+    file: esphome-modular-lvgl-buttons/pages/loading_standalone.yaml
+    vars:
+      boot_screen_hidden: "true"   # skip boot screen; go straight to main page
+  # info screen - WiFi login, IP address, MAC address etc
+  info_screen: !include esphome-modular-lvgl-buttons/pages/info.yaml
+
+  # Flip clock in upper right (row 0, columns 6-8)
+  flip_clock: !include
+    file: esphome-modular-lvgl-buttons/ui/clock/flip_clock.yaml
+    vars:
+      uid: flip_clock
+      page_id: main_page
+      row: 0
+      column: 6
+      row_span: 1
+      column_span: 3
+      height: 100%
+      font_size: 90
+
+  # Tide forecast package
+  tide_info: !include
+    file: esphome-modular-lvgl-buttons/ui/tides/NOAA_tide_update.yaml
+    vars:
+      noaa_station_id: "8452944"    # Conimicut Light, RI (nearest active station to Greenwich Bay)
+      noaa_unit_system: "english"   # or "metric"
+
+# Weather packages
+  # Display weather forecast using direct HA action (no template sensor needed!)
+  # Icons are included automatically in the action file
+  # Weather direct from Pirate Weather (no Home Assistant)
+  pirate_weather: !include
+    file: esphome-modular-lvgl-buttons/ui/weather/pirate_weather.yaml
+    vars:
+      pw_key: !secret pirate_weather_key
+      pw_lat: !secret latitude
+      pw_lon: !secret longitude
+      today_size: 220
+      forecast_size: 100
+
+
+# Styles for Weather forecast
+.forecast_styles:
+    - &forecast_obj_base
+      height: 100%
+      width: 100%
+      bg_color: gray200
+      bg_opa: cover
+      radius: 10
+      pad_top: 4
+      pad_bottom: 4
+      layout:
+        type: flex
+        flex_flow: COLUMN
+        flex_align_main: SPACE_EVENLY
+        flex_align_cross: center
+        flex_align_track: center
+        pad_column: 0
+        pad_row: 2
+
+    - &forecast_label_base
+      text_font: nunito_28
+      height: SIZE_CONTENT
+
+    - &forecast_label_base_lo
+      height: SIZE_CONTENT
+      text_font: nunito_24
+      text_color: dodgerblue
+
+    - &forecast_image_wrapper
+      height: 100
+      width: 100
+      bg_opa: TRANSP
+      scrollbar_mode: "OFF"
+
+font:
+  - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
+    id: nunito_80
+    size: 80
+    bpp: 8
+
+  - file: "esphome-modular-lvgl-buttons/assets/fonts/Nunito-SemiBold.ttf"
+    id: nunito_28
+    size: 28
+    bpp: 8
+
+  - file: "gfonts://Roboto@700"
+    id: roboto36_bold
+    size: 36
+    bpp: 8
+
+  - file: 'https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf'
+    id: mdi_icons_60
+    size: 60
+    bpp: 8
+    glyphs: [
+      $mdi_weather_windy,
+    ]
+
+  - file: 'https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf'
+    id: mdi_icons_40
+    size: 40
+    bpp: 8
+    glyphs: [
+      $mdi_weather_windy,
+    ]
+
+# -------------------------------------------------------------------------
+# LVGL pages and buttons
+# -------------------------------------------------------------------------
+# This is the main LVGL section. We start with a simple 4x4 grid.
+lvgl:
+  pages:
+    - id: main_page
+      bg_color: ${bg_color}
+      # layout: <rows>x<cols>
+      layout: 5x9
+      # <<: !include esphome-modular-lvgl-buttons/common/swipe_navigation.yaml
+      widgets:
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 2
+            widgets:
+              - label:
+                  id: weather_temperature_today
+                  text_font: nunito_80
+                  align: left_mid
+                  text: "100°"
+
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 2
+            grid_cell_row_span: 2
+            grid_cell_column_span: 2
+            widgets:
+                - image:
+                   src: unknown_220
+                   id: weather_condition_icon
+                   align: center
+
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 2
+            layout:
+              type: grid
+              grid_columns: [CONTENT, FR(1)]
+              grid_rows: [CONTENT, CONTENT, CONTENT]
+              pad_row: 2
+              pad_column: 4
+            widgets:
+              - label:
+                  text_font: nunito_28
+                  text: "Humidity"
+                  grid_cell_row_pos: 0
+                  grid_cell_column_pos: 0
+                  grid_cell_x_align: START
+              - label:
+                  id: weather_humidity_today
+                  text_font: nunito_28
+                  text: "---%"
+                  grid_cell_row_pos: 0
+                  grid_cell_column_pos: 1
+                  grid_cell_x_align: END
+              - label:
+                  text_font: nunito_28
+                  text: "BP"
+                  grid_cell_row_pos: 1
+                  grid_cell_column_pos: 0
+                  grid_cell_x_align: START
+              - label:
+                  id: weather_pressure_today
+                  text_font: nunito_28
+                  text: "-- hPa"
+                  grid_cell_row_pos: 1
+                  grid_cell_column_pos: 1
+                  grid_cell_x_align: END
+              - label:
+                  text_font: nunito_28
+                  text: "Visibility"
+                  grid_cell_row_pos: 2
+                  grid_cell_column_pos: 0
+                  grid_cell_x_align: START
+              - label:
+                  id: weather_visibility_today
+                  text_font: nunito_28
+                  text: "-- mi"
+                  grid_cell_row_pos: 2
+                  grid_cell_column_pos: 1
+                  grid_cell_x_align: END
+
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 4
+            grid_cell_row_span: 1
+            grid_cell_column_span: 2
+            height: 100%
+            pad_all: 0
+            layout:
+              type: flex
+              flex_flow: ROW
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              flex_align_track: CENTER
+              pad_column: 12
+            widgets:
+              - label:
+                  text_font: mdi_icons_60
+                  text: $mdi_weather_windy
+              - obj:
+                  bg_opa: TRANSP
+                  width: SIZE_CONTENT
+                  height: SIZE_CONTENT
+                  pad_all: 0
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                    pad_row: 0
+                  widgets:
+                    - label:
+                        id: weather_wind_dir_today
+                        text_font: nunito_28
+                        text_align: CENTER
+                        text: "---"
+                    - label:
+                        id: weather_wind_speed_today
+                        text_font: nunito_28
+                        text_align: CENTER
+                        text: "--mph"
+
+
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 2
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 1
+            grid_cell_column_span: 4
+            widgets:
+              - label:
+                  id: weather_summary_today
+                  text_font: $text_font
+                  align: center
+                  long_mode: WRAP
+                  width: 100%
+                  text: "forcast"
+
+         - container:
+            id: bottom_label_1
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 0
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_0
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
+                            - image:
+                                id: forecast_condition_icon_0
+                                src: unknown_100
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_0
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_0
+                          <<: *forecast_label_base_lo
+                          text: "---°"
+
+         - container:
+            id: bottom_label_2
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 1
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_1
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
+                            - image:
+                                id: forecast_condition_icon_1
+                                src: unknown_100
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_1
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_1
+                          <<: *forecast_label_base_lo
+                          text: "---°"
+
+         - container:
+            id: bottom_label_3
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 2
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_2
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
+                            - image:
+                                id: forecast_condition_icon_2
+                                src: unknown_100
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_2
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_2
+                          <<: *forecast_label_base_lo
+                          text: "---°"
+
+         - container:
+            id: bottom_label_4
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 3
+            grid_cell_column_pos: 3
+            grid_cell_row_span: 2
+            grid_cell_column_span: 1
+            widgets:
+              - obj:
+                  <<: *forecast_obj_base
+                  widgets:
+                      - label:
+                          id: forecast_day_3
+                          <<: *forecast_label_base
+                          text: ???
+                      - obj:
+                          <<: *forecast_image_wrapper
+                          widgets:
+                            - image:
+                                id: forecast_condition_icon_3
+                                src: unknown_100
+                                align: center
+                      - label:
+                          id: forecast_temperature_hi_3
+                          <<: *forecast_label_base
+                          text: "---°"
+                      - label:
+                          id: forecast_temperature_lo_3
+                          <<: *forecast_label_base_lo
+                          text: "---°"
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 4
+            grid_cell_row_span: 4
+            grid_cell_column_span: 1
+
+            widgets:
+                - obj:
+                       width: SIZE_CONTENT
+                       height: SIZE_CONTENT
+                       align: TOP_LEFT
+                       pad_all: 2
+                       layout:
+                         type: flex
+                         flex_flow: ROW_WRAP
+                         pad_column: 1
+                       widgets:
+                          - label:
+                                id: high_tide_height
+                                text_font: nunito_36
+                                text: "0.00 ft"
+                - obj:
+                       width: SIZE_CONTENT
+                       height: SIZE_CONTENT
+                       align: BOTTOM_LEFT
+                       pad_all: 2
+                       layout:
+                         type: flex
+                         flex_flow: ROW_WRAP
+                         pad_column: 1
+                       widgets:
+                          - label:
+                                id: low_tide_height
+                                text_font: nunito_36
+                                text: "-0.00 ft"
+
+         - container:
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 5
+            grid_cell_row_span: 4
+            grid_cell_column_span: 4
+            widgets:
+              # Square wrapper for the meter so it draws a true circle.
+              # The grid cell isn't square (cols are slightly narrower
+              # than rows on most panels), so we constrain the meter to
+              # an explicit square that fits inside the cell. 440px works
+              # well on a 1024x600 panel; tweak if your screen differs.
+              - container:
+                  height: 100%
+                  width: 100%
+                  widgets:
+                    - meter:
+                        align: center
+                        height: 440
+                        width: 440
+                        # radius: circle
+                        text_font: nunito_24
+                        outline_width: 3
+                        outline_color: black
+                        indicator:
+                          opa: TRANSP # get rid of that black dot in the center of the meter
+                        scales:
+                            - range_from: 1
+                              range_to: 100
+                              angle_range: 360
+                              rotation: 270
+                              indicators:
+                                - image:
+                                    id: tide_level
+                                    src: tide_pointer
+                                    pivot_x: 40
+                                    pivot_y: 40
+                                    value: 0
+                            - range_from: 5
+                              range_to: 1
+                              angle_range: 120
+                              rotation: 300
+                              ticks:
+                                width: 1
+                                count: 5
+                                major:
+                                  label_gap: 25
+                                  stride: 1
+                                  width: 2
+                                  length: 20
+                            - range_from: 5
+                              range_to: 1
+                              angle_range: 120
+                              rotation: 120
+                              ticks:
+                                width: 1
+                                count: 5
+                                major:
+                                  label_gap: 25
+                                  stride: 1
+                                  width: 2
+                                  length: 20
+
+                    - obj:
+                        align: TOP_LEFT
+                        width: SIZE_CONTENT
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 2
+                        widgets:
+                          - image:
+                              src: high_tide
+                    - obj:
+                        align: TOP_MID
+                        y: 35   # push down so labels clear the meter ring
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 0
+                        layout:
+                          type: flex
+                          flex_flow: COLUMN
+                          flex_align_cross: center
+                          pad_row: 0
+                        widgets:
+                          - label:
+                              text_font: nunito_28
+                              text_align: center
+                              width: 100%
+                              text: "High Tide"
+                          - label:
+                              id: high_tide_label
+                              text_font: roboto36_bold
+                              text_align: center
+                              width: 100%
+                              text: "00:00 am"
+                    - obj:
+                        align: BOTTOM_LEFT
+                        width: SIZE_CONTENT
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 2
+                        widgets:
+                          - image:
+                              src: low_tide
+                    - obj:
+                        align: BOTTOM_MID
+                        y: -35   # push up so labels clear the meter ring
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        pad_all: 0
+                        layout:
+                          type: flex
+                          flex_flow: COLUMN
+                          flex_align_cross: center
+                          pad_row: 0
+                        widgets:
+                          - label:
+                              id: low_tide_label
+                              text_font: roboto36_bold
+                              text_align: center
+                              width: 100%
+                              text: "00:00 am"
+                          - label:
+                              text_font: nunito_28
+                              text_align: center
+                              width: 100%
+                              text: "Low Tide"

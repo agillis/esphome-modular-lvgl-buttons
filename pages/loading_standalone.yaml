@@ -20,6 +20,8 @@
 
 defaults:
   boot_title: "Starting up..."
+  # Set to "true" to skip the boot screen and land directly on the main page.
+  boot_screen_hidden: "false"
 
 image:
   - platform: file
@@ -33,8 +35,10 @@ lvgl:
   top_layer:
     widgets:
       # Full-screen cover shown at boot; hidden by the device config when ready.
+      # Starts hidden when boot_screen_hidden is "true" (straight to main page).
       - button:
           id: loading_page
+          hidden: ${boot_screen_hidden}
           bg_color: slate_blue_gray
           shadow_opa: transp
           width: 100%
