@@ -9,10 +9,10 @@
 # Add your own tiles below to preview them in the SDL window.
 
 external_components:
+  # Vendored + LVGL-9-fixed copy (see components/lvgl_screenshot/README.md)
   - source:
-      type: git
-      url: https://github.com/agillis/esphome-lvgl-screenshot
-      ref: main
+      type: local
+      path: esphome-modular-lvgl-buttons/components
     components: [lvgl_screenshot]
 
 lvgl_screenshot:
