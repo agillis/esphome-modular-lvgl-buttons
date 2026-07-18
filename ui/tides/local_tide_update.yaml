@@ -112,10 +112,10 @@ sensor:
             id: tide_level
             value: !lambda "return x;"
 
-  # High/low tides bracketing now (one may be in the past) — mirrors NOAA.
+  # Strictly-upcoming next high and next low (both in the future).
   - platform: tide
     tide_id: local_tide
-    type: high_level
+    type: next_high_level
     name: "High Tide Level"
     id: high_tide_level
     icon: mdi:wave-arrow-up
@@ -132,7 +132,7 @@ sensor:
 
   - platform: tide
     tide_id: local_tide
-    type: low_level
+    type: next_low_level
     name: "Low Tide Level"
     id: low_tide_level
     icon: mdi:wave-arrow-down
@@ -171,7 +171,7 @@ sensor:
 text_sensor:
   - platform: tide
     tide_id: local_tide
-    type: high_time
+    type: next_high_time
     name: "High Tide Time"
     id: high_tide_time_sensor
     icon: mdi:clock-time-eight
@@ -184,7 +184,7 @@ text_sensor:
 
   - platform: tide
     tide_id: local_tide
-    type: low_time
+    type: next_low_time
     name: "Low Tide Time"
     id: low_tide_time_sensor
     icon: mdi:clock-time-two
