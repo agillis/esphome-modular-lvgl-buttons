@@ -1,0 +1,95 @@
+---
+# ============================================================================
+# Neutral boot screen — for standalone (no Home Assistant) devices
+# ============================================================================
+# Drop-in replacement for pages/loading.yaml with no Home Assistant logo or
+# text. Provides the same contract other modules rely on:
+#   - loading_page          widget  (the device config hides it once ready)
+#   - update_loading_page   script  (device configs call it from on_boot)
+#   - on_ha_connected       script  (so `!extend on_ha_connected` in the tide/
+#                                     solar/... modules still resolves; on a
+#                                     standalone device it is simply never fired)
+#
+# The device config is responsible for dismissing the screen, e.g. from on_boot:
+#   - wait_until: { condition: { lambda: 'return id(system_time).now().is_valid();' } }
+#   - lvgl.widget.hide: loading_page
+#
+# vars:
+#   boot_title: text shown under the spinner (default "Starting up...")
+# ============================================================================
+
+defaults:
+  boot_title: "Starting up..."
+
+image:
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: 'esphome-modular-lvgl-buttons/assets/images/loading/esphome.png'
+    id: boot_logo_img
+    resize: 320x95
+
+lvgl:
+  top_layer:
+    widgets:
+      # Full-screen cover shown at boot; hidden by the device config when ready.
+      - button:
+          id: loading_page
+          bg_color: slate_blue_gray
+          shadow_opa: transp
+          width: 100%
+          height: 100%
+          radius: 0
+          pad_all: 0
+          on_press:
+            - lvgl.widget.hide: loading_page
+          widgets:
+            - obj:
+                align: center
+                width: 360
+                height: 150
+                bg_opa: transp
+                border_opa: transp
+                shadow_opa: transp
+                pad_all: 0
+                layout:
+                  type: flex
+                  flex_flow: COLUMN
+                  flex_align_main: center
+                  flex_align_cross: center
+                  pad_row: 16
+                widgets:
+                  - spinner:
+                      width: 60
+                      height: 60
+                      spin_time: 2s
+                      arc_length: 60deg
+                      arc_width: 6
+                      arc_color: steel_blue
+                      indicator:
+                        arc_color: misty_blue
+                        arc_width: 6
+                  - label:
+                      id: boot_title_label
+                      text_font: nunito_20
+                      text_color: misty_blue
+                      text: "${boot_title}"
+            - image:
+                align: bottom_mid
+                y: -30
+                src: boot_logo_img
+
+script:
+  # Called from device configs' on_boot. No-op here: the device config dismisses
+  # the boot screen itself once the clock is set.
+  - id: update_loading_page
+    then:
+      - lambda: |-
+          // no-op on a standalone device
+
+  # Defined only so `!extend on_ha_connected` in other modules resolves.
+  # Never triggered on a standalone (no Home Assistant) device.
+  - id: on_ha_connected
+    then:
+      - lambda: |-
+          // no-op: standalone build has no Home Assistant

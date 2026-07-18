@@ -76,7 +76,10 @@ light:
   # not detect motion)
 
 time:
-  - platform: homeassistant
+  # Time source is swappable: default Home Assistant, or set
+  #   substitutions: { time_source: sntp }
+  # for a standalone (no-HA) device that gets time from NTP.
+  - platform: ${time_source | default("homeassistant")}
     id: system_time
     on_time_sync:
       - script.execute: time_update
