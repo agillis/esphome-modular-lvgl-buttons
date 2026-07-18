@@ -24,9 +24,9 @@ script:
       - lambda: |-
           int aqi = id(pw_aqi);
           ESP_LOGI("aqi", "Air Quality Index: %d", aqi);
-          char buf[16];
-          if (aqi < 0) snprintf(buf, sizeof(buf), "AQI --");
-          else         snprintf(buf, sizeof(buf), "AQI %d", aqi);
+          char buf[8];
+          if (aqi < 0) snprintf(buf, sizeof(buf), "--");
+          else         snprintf(buf, sizeof(buf), "%d", aqi);
           lv_label_set_text(id(aqi_pill_label), buf);
 
           // US EPA AQI color bands (bg) with a readable text color.
@@ -40,4 +40,5 @@ script:
           else if (aqi <= 300) { bg = lv_color_hex(0x8F3F97); }              // Very Unhealthy
           else                 { bg = lv_color_hex(0x7E0023); }              // Hazardous
           lv_obj_set_style_bg_color(id(aqi_pill), bg, LV_PART_MAIN);
+          lv_obj_set_style_text_color(id(aqi_pill_title), fg, LV_PART_MAIN);
           lv_obj_set_style_text_color(id(aqi_pill_label), fg, LV_PART_MAIN);
