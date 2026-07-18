@@ -247,7 +247,7 @@ lvgl:
             widgets:
               - label:
                   id: weather_temperature_today
-                  text_font: nunito_80
+                  text_font: nunito_72
                   text: "100°"
               # AQI pill next to the temperature (upper-left)
               - !include esphome-modular-lvgl-buttons/ui/weather/aqi_pill_widget.yaml
