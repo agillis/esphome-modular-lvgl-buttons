@@ -452,7 +452,18 @@ script:
                         // Format: {"predictions": [{"t":"YYYY-MM-DD HH:MM", "v":"1.234", "type":"H"}, ...]}
                         json::parse_json(body, [](JsonObject root) -> bool {
                           if (!root["predictions"].is<JsonArray>()) {
-                            ESP_LOGE("noaa", "Response missing 'predictions' key - check station ID");
+                            // NOAA replies 200 with {"error":{"message":"..."}} when it
+                            // returns no prediction data. That's usually a transient NOAA
+                            // API outage (retry handles it), but can also mean a
+                            // decommissioned/invalid station. Surface NOAA's own message.
+                            const char *noaa_err = root["error"]["message"].as<const char *>();
+                            if (noaa_err != nullptr) {
+                              ESP_LOGE("noaa", "NOAA returned no predictions for station ${noaa_station_id}: "
+                                               "%s (usually a temporary NOAA outage; will retry)", noaa_err);
+                            } else {
+                              ESP_LOGE("noaa", "NOAA response has no 'predictions' for station ${noaa_station_id} "
+                                               "(verify the station offers tide predictions; will retry)");
+                            }
                             return false;
                           }
 

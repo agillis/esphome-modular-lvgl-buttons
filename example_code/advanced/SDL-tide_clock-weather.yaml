@@ -84,7 +84,7 @@ packages:
   tide_info: !include
     file: esphome-modular-lvgl-buttons/ui/tides/NOAA_tide_update.yaml
     vars:
-      noaa_station_id: "8454578"    # Your station ID
+      noaa_station_id: "9414290"    # example station (San Francisco); find yours at https://tidesandcurrents.noaa.gov/map/
       noaa_unit_system: "english"   # or "metric"
 
 # Weather packages
