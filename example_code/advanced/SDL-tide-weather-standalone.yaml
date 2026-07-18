@@ -4,7 +4,7 @@
 # ============================================================================
 # A desktop (SDL) demo of a self-contained panel:
 #   - Weather direct from Pirate Weather      (ui/weather/pirate_weather.yaml)
-#   - Tides direct from NOAA                   (ui/tides/NOAA_tide_update.yaml)
+#   - Tides computed on-device (offline)        (ui/tides/local_tide_update.yaml)
 #   - Time from the host clock (NTP on real hardware; sntp is MCU-only)
 #   - Neutral boot screen, boots straight to the main page
 #
@@ -56,12 +56,6 @@ esphome:
         # Land directly on the main page (info_screen is the first page in the
         # merged list; without this LVGL would show it at boot).
         - lvgl.page.show: main_page
-        - wait_until:
-            condition:
-              lambda: 'return id(system_time).now().is_valid();'
-            timeout: 90s
-        - script.execute: fetch_noaa_datums
-        - script.execute: fetch_noaa_tides
 
 logger:
   level: debug
@@ -133,11 +127,14 @@ packages:
       font_size: 90
 
   # Tide forecast package
+  # Offline tide prediction — computed on-device, no NOAA API
   tide_info: !include
-    file: esphome-modular-lvgl-buttons/ui/tides/NOAA_tide_update.yaml
+    file: esphome-modular-lvgl-buttons/ui/tides/local_tide_update.yaml
     vars:
-      noaa_station_id: "8452944"    # Conimicut Light, RI (nearest active station to Greenwich Bay)
-      noaa_unit_system: "english"   # or "metric"
+      # Conimicut Light, RI (8452944) harmonic constants. Offline — no API.
+      # Regenerate for another station: generator/generate_station.py --id <NOAA id>
+      tide_station_data: "TIDE1|U=m|Z0=0.6420|D=MLLW|MHW=1.3220|MLW=0.0520|M2:0.576:7.6|S2:0.123:31|N2:0.14:351.7|K1:0.065:170.7|M4:0.089:56.2|O1:0.05:201.1|M6:0.017:301.9|MK3:0.011:29.7|S4:0.011:29|MN4:0.04:7.8|NU2:0.024:350|S6:0.002:299.1|MU2:0.028:355.8|2N2:0.021:336.7|OO1:0.005:198.7|LAM2:0.004:351.5|S1:0.013:119.8|M1:0.004:225.9|J1:0.007:201.3|SA:0.072:140.4|RHO:0.003:188.9|Q1:0.011:192.3|T2:0.011:17.9|R2:0.003:212.7|P1:0.025:180.2|2SM2:0.002:35.9|M3:0.009:44.7|L2:0.015:355.8|2MK3:0.013:11.5|K2:0.033:29.4|M8:0.002:102|MS4:0.021:137.9"
+      tide_units: ft
 
 # Weather packages
   # Display weather forecast using direct HA action (no template sensor needed!)

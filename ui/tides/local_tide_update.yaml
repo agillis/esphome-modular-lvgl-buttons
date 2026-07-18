@@ -1,0 +1,195 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# LOCAL TIDE UPDATE — offline harmonic prediction (no NOAA API)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Drop-in replacement for NOAA_tide_update.yaml that computes tides ON-DEVICE
+# from the clock alone, using the agillis/esphome-tide component. No internet,
+# no API outages. Binds the same LVGL widgets and exposes the same sensor IDs
+# (tide_percentage, high_tide_level/low_tide_level, mean_high_water/mean_low_water,
+# high_tide_time_sensor/low_tide_time_sensor) so the existing tide UI is unchanged.
+#
+# Required vars:
+#   tide_station_data:  the "TIDE1|..." harmonic string for your station.
+#                       Generate with the repo's generator:
+#                         python generator/generate_station.py --id <NOAA id>
+#                       (station id from https://tidesandcurrents.noaa.gov/map/)
+#
+# Optional vars:
+#   tide_units:         "ft" or "m"   (default: ft)
+#   tide_unit_label:    unit shown on the level labels (default: ft)
+#
+# Requires a time component with `id: system_time` (sntp/homeassistant/host).
+#
+# Usage:
+#   packages:
+#     tide_info: !include
+#       file: esphome-modular-lvgl-buttons/ui/tides/local_tide_update.yaml
+#       vars:
+#         tide_station_data: "TIDE1|U=m|Z0=...|M2:...|..."
+#         tide_units: ft
+# ═══════════════════════════════════════════════════════════════════════════════
+
+defaults:
+  tide_units: ft
+  tide_unit_label: ft
+
+# The offline tide engine (harmonic constituents computed on-device).
+external_components:
+  - source: github://agillis/esphome-tide
+    components: [tide]
+
+# -------------------------------------------
+# Graphics and Fonts (unchanged from the NOAA module so the LVGL layout binds)
+# -------------------------------------------
+image:
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/tide_pointer.svg
+    id: tide_pointer
+    resize: 180x80
+
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/high_tide.svg
+    id: high_tide
+    resize: 60x66
+
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/low_tide.svg
+    id: low_tide
+    resize: 60x66
+
+# -------------------------------------------
+# Offline tide predictor
+# -------------------------------------------
+tide:
+  id: local_tide
+  time_id: system_time
+  units: ${tide_units}
+  update_interval: 60s
+  station_data: "${tide_station_data}"
+
+# Populate the UI immediately at boot. Each tide sensor only publishes on its
+# own update_interval (60s), so without this the gauge would sit blank for up
+# to a minute. The engine computes on demand (ensure_fresh_), so forcing an
+# update as soon as the clock is valid fills the display right away.
+esphome:
+  on_boot:
+    - priority: -100
+      then:
+        - wait_until:
+            condition:
+              lambda: 'return id(system_time).now().is_valid();'
+            timeout: 120s
+        - component.update: tide_percentage
+        - component.update: high_tide_level
+        - component.update: low_tide_level
+        - component.update: mean_high_water
+        - component.update: mean_low_water
+        - component.update: high_tide_time_sensor
+        - component.update: low_tide_time_sensor
+
+# -------------------------------------------
+# Sensors — same IDs as the NOAA module, driving the same LVGL widgets
+# -------------------------------------------
+sensor:
+  # Tide percentage: 0=just past high, 50=low, 100=high. Drives the gauge pointer.
+  - platform: tide
+    tide_id: local_tide
+    type: tide_percentage
+    name: "Tide Percentage"
+    id: tide_percentage
+    icon: mdi:waves
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    on_value:
+      then:
+        - lvgl.indicator.update:
+            id: tide_level
+            value: !lambda "return x;"
+
+  # High/low tides bracketing now (one may be in the past) — mirrors NOAA.
+  - platform: tide
+    tide_id: local_tide
+    type: high_level
+    name: "High Tide Level"
+    id: high_tide_level
+    icon: mdi:wave-arrow-up
+    unit_of_measurement: "${tide_unit_label}"
+    accuracy_decimals: 2
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: high_tide_height
+            text: !lambda |-
+              char b[16];
+              snprintf(b, sizeof(b), "%.1f ${tide_unit_label}", x);
+              return std::string(b);
+
+  - platform: tide
+    tide_id: local_tide
+    type: low_level
+    name: "Low Tide Level"
+    id: low_tide_level
+    icon: mdi:wave-arrow-down
+    unit_of_measurement: "${tide_unit_label}"
+    accuracy_decimals: 2
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: low_tide_height
+            text: !lambda |-
+              char b[16];
+              snprintf(b, sizeof(b), "%.1f ${tide_unit_label}", x);
+              return std::string(b);
+
+  - platform: tide
+    tide_id: local_tide
+    type: mean_high_water
+    name: "Mean High Water"
+    id: mean_high_water
+    icon: mdi:waves-arrow-up
+    unit_of_measurement: "${tide_unit_label}"
+    accuracy_decimals: 2
+
+  - platform: tide
+    tide_id: local_tide
+    type: mean_low_water
+    name: "Mean Low Water"
+    id: mean_low_water
+    icon: mdi:waves-arrow-left
+    unit_of_measurement: "${tide_unit_label}"
+    accuracy_decimals: 2
+
+# -------------------------------------------
+# Text Sensors — high/low tide times
+# -------------------------------------------
+text_sensor:
+  - platform: tide
+    tide_id: local_tide
+    type: high_time
+    name: "High Tide Time"
+    id: high_tide_time_sensor
+    icon: mdi:clock-time-eight
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: high_tide_label
+            # strip the leading zero: "09:58 AM" -> "9:58 AM"
+            text: !lambda "return (!x.empty() && x[0] == '0') ? x.substr(1) : x;"
+
+  - platform: tide
+    tide_id: local_tide
+    type: low_time
+    name: "Low Tide Time"
+    id: low_tide_time_sensor
+    icon: mdi:clock-time-two
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: low_tide_label
+            text: !lambda "return (!x.empty() && x[0] == '0') ? x.substr(1) : x;"
