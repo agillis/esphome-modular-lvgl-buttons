@@ -1,0 +1,43 @@
+---
+# ============================================================================
+# AQI pill — reusable add-on for the Pirate Weather module
+# ============================================================================
+# Shows "AQI <n>" in a rounded pill, colored by the US EPA AQI severity band.
+# Data comes from ui/weather/pirate_weather.yaml (requires version=2, which
+# provides currently.airQualityIndex -> global pw_aqi).
+#
+# To add to a screen:
+#   1. packages:
+#        pirate_weather: !include ui/weather/pirate_weather.yaml   (with vars)
+#        aqi_pill:       !include ui/weather/aqi_pill.yaml
+#   2. Drop the pill widget where you want it, e.g. next to the temperature:
+#        - !include esphome-modular-lvgl-buttons/ui/weather/aqi_pill_widget.yaml
+#
+# The widget must provide two IDs: aqi_pill (the container) and aqi_pill_label.
+# This file extends pirate_weather's pw_after_update hook to refresh the pill
+# after every successful weather fetch.
+# ============================================================================
+
+script:
+  - id: !extend pw_after_update
+    then:
+      - lambda: |-
+          int aqi = id(pw_aqi);
+          ESP_LOGI("aqi", "Air Quality Index: %d", aqi);
+          char buf[16];
+          if (aqi < 0) snprintf(buf, sizeof(buf), "AQI --");
+          else         snprintf(buf, sizeof(buf), "AQI %d", aqi);
+          lv_label_set_text(id(aqi_pill_label), buf);
+
+          // US EPA AQI color bands (bg) with a readable text color.
+          lv_color_t bg;
+          lv_color_t fg = lv_color_white();
+          if (aqi < 0)         { bg = lv_color_hex(0x9E9E9E); }              // unknown - gray
+          else if (aqi <= 50)  { bg = lv_color_hex(0x00E400); fg = lv_color_black(); } // Good
+          else if (aqi <= 100) { bg = lv_color_hex(0xFFFF00); fg = lv_color_black(); } // Moderate
+          else if (aqi <= 150) { bg = lv_color_hex(0xFF7E00); fg = lv_color_black(); } // Unhealthy (sensitive)
+          else if (aqi <= 200) { bg = lv_color_hex(0xFF0000); }              // Unhealthy
+          else if (aqi <= 300) { bg = lv_color_hex(0x8F3F97); }              // Very Unhealthy
+          else                 { bg = lv_color_hex(0x7E0023); }              // Hazardous
+          lv_obj_set_style_bg_color(id(aqi_pill), bg, LV_PART_MAIN);
+          lv_obj_set_style_text_color(id(aqi_pill_label), fg, LV_PART_MAIN);

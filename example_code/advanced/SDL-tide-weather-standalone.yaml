@@ -152,6 +152,9 @@ packages:
       today_size: 220
       forecast_size: 100
 
+  # AQI pill add-on (uses pirate_weather data; pairs with the widget below)
+  aqi_pill: !include esphome-modular-lvgl-buttons/ui/weather/aqi_pill.yaml
+
 
 # Styles for Weather forecast
 .forecast_styles:
@@ -238,12 +241,19 @@ lvgl:
             grid_cell_column_pos: 0
             grid_cell_row_span: 1
             grid_cell_column_span: 2
+            layout:
+              type: flex
+              flex_flow: ROW
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_column: 12
             widgets:
               - label:
                   id: weather_temperature_today
                   text_font: nunito_80
-                  align: left_mid
                   text: "100°"
+              # AQI pill next to the temperature (upper-left)
+              - !include esphome-modular-lvgl-buttons/ui/weather/aqi_pill_widget.yaml
 
          - container:
             grid_cell_x_align: stretch

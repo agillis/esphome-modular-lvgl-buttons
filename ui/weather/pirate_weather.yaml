@@ -54,6 +54,11 @@ globals:
     type: std::string
     restore_value: false
     initial_value: '"clear-day"'
+  # Air Quality Index (US EPA). -1 = unknown / not yet fetched.
+  - id: pw_aqi
+    type: int
+    restore_value: false
+    initial_value: '-1'
 
 # Dark Sky icon name -> bundled weather image, at each size
 mapping:
@@ -103,8 +108,9 @@ script:
           format: "Fetching weather from Pirate Weather..."
       - http_request.get:
           capture_response: true
-          max_response_buffer_size: 12288
-          url: "https://api.pirateweather.net/forecast/${pw_key}/${pw_lat},${pw_lon}?units=${pw_units}&exclude=minutely,hourly,alerts,flags"
+          max_response_buffer_size: 16384
+          # version=2 adds air quality (currently.airQualityIndex) and other fields
+          url: "https://api.pirateweather.net/forecast/${pw_key}/${pw_lat},${pw_lon}?units=${pw_units}&version=2&exclude=minutely,hourly,alerts,flags"
           on_response:
             then:
               - lambda: |-
@@ -142,6 +148,8 @@ script:
                     }
                     lv_label_set_text(id(weather_summary_today), cur["summary"] | "");
                     id(pw_current_icon) = cur["icon"] | "clear-day";
+                    // Air quality (version=2). Missing on v1 -> stays -1.
+                    id(pw_aqi) = cur["airQualityIndex"] | -1;
 
                     // 4-day forecast
                     JsonArray days = root["daily"]["data"];
@@ -182,11 +190,20 @@ script:
               - lvgl.image.update:
                   id: forecast_condition_icon_3
                   src: !lambda 'return id(pw_icon_fc)[id(pw_fc_icon_3)];'
+              # Hook for optional add-ons (e.g. the AQI pill). Runs after every
+              # successful update; extended via `!extend pw_after_update`.
+              - script.execute: pw_after_update
           on_error:
             then:
               - logger.log:
                   level: WARN
                   format: "Pirate Weather request failed; will retry next cycle"
+
+  # Overridable post-update hook. No-op unless an add-on `!extend`s it.
+  - id: pw_after_update
+    then:
+      - lambda: |-
+          // no-op; add-ons extend this (see ui/weather/aqi_pill.yaml)
 
 # Fetch once on boot (after time sync) and then on a fixed interval
 esphome:
