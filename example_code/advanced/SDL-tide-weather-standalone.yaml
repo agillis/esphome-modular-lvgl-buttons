@@ -228,7 +228,11 @@ lvgl:
     - id: main_page
       bg_color: ${bg_color}
       # layout: <rows>x<cols>
-      layout: 5x9
+      layout:
+        type: grid
+        # cols 0-1 (temperature + AQI pill) widened; rest even
+        grid_columns: [FR(23), FR(23), FR(18), FR(18), FR(18), FR(18), FR(18), FR(18), FR(18)]
+        grid_rows: [FR(1), FR(1), FR(1), FR(1), FR(1)]
       # <<: !include esphome-modular-lvgl-buttons/common/swipe_navigation.yaml
       widgets:
          - container:
