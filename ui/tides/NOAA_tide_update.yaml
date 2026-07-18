@@ -121,6 +121,37 @@ font:
     bpp: 8
 
 # -------------------------------------------
+# On-screen outage indicator
+# -------------------------------------------
+# A small banner on LVGL's top layer, hidden until the tide fetch gives up
+# (so a NOAA outage is visible on the panel, not just in the logs). Shown by
+# fetch_noaa_tides/noaa_schedule_retry, hidden again on the next good fetch.
+lvgl:
+  top_layer:
+    widgets:
+      - obj:
+          id: tide_unavailable
+          hidden: true
+          align: BOTTOM_MID
+          y: -8
+          width: SIZE_CONTENT
+          height: SIZE_CONTENT
+          radius: 8
+          bg_color: 0xB00020
+          bg_opa: 85%
+          border_width: 0
+          shadow_opa: TRANSP
+          pad_left: 12
+          pad_right: 12
+          pad_top: 6
+          pad_bottom: 6
+          widgets:
+            - label:
+                text: "Tide data unavailable"
+                text_color: 0xFFFFFF
+                text_font: roboto24_bold
+
+# -------------------------------------------
 # Sensors (Template - populated from NOAA API)
 # -------------------------------------------
 sensor:
@@ -368,6 +399,8 @@ script:
                 format: "NOAA tide fetch failed after %d attempts; keeping last data, will retry on the next 5-min cycle"
                 args: ['id(noaa_retry_count)']
             - lambda: 'id(noaa_retry_count) = 0;'
+            # Surface the outage on the panel
+            - lvgl.widget.show: tide_unavailable
 
   # Retry helper for the one-shot datums fetch (MHW/MLW). Same backoff.
   # There is no 5-minute fallback for datums, so after ${noaa_max_retries}
@@ -591,6 +624,9 @@ script:
                               level: WARN
                               format: "NOAA tide data unusable (bad status or no predictions); scheduling retry"
                           - script.execute: noaa_schedule_retry
+                        else:
+                          # Fresh data — clear any on-screen outage banner
+                          - lvgl.widget.hide: tide_unavailable
                 on_error:
                   then:
                     - logger.log:
