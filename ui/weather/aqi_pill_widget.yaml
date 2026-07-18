@@ -17,10 +17,10 @@ obj:
   bg_opa: COVER
   border_width: 0
   shadow_opa: TRANSP
-  pad_left: 10
-  pad_right: 10
-  pad_top: 3
-  pad_bottom: 4
+  pad_left: 6
+  pad_right: 6
+  pad_top: 2
+  pad_bottom: 3
   layout:
     type: flex
     flex_flow: COLUMN
@@ -32,9 +32,9 @@ obj:
         id: aqi_pill_title
         text: "AQI"
         text_color: 0xFFFFFF
-        text_font: ${aqi_label_font | default("nunito_20")}
+        text_font: ${aqi_label_font | default("nunito_14")}
     - label:
         id: aqi_pill_label
         text: "--"
         text_color: 0xFFFFFF
-        text_font: ${aqi_value_font | default("nunito_36")}
+        text_font: ${aqi_value_font | default("nunito_24")}
