@@ -1,0 +1,1483 @@
+---
+# ============================================================================
+# Tide clock + weather — standalone (no Home Assistant)
+# Waveshare ESP32-S3-Touch-LCD-7B (1024x600 mipi_rgb panel)
+# ============================================================================
+# A self-contained panel:
+#   - Weather direct from Pirate Weather      (ui/weather/pirate_weather.yaml)
+#   - Tides computed on-device (offline)        (ui/tides/local_tide_update.yaml)
+#   - Time from NTP (sntp) over Wi-Fi
+#   - Neutral boot screen, boots straight to the main page
+#
+# Requires secrets.yaml (one level above the repo) with:
+#   wifi_ssid, wifi_password, ap_password,
+#   pirate_weather_key, latitude, longitude
+# Get a free Pirate Weather key at https://pirateweather.net.
+#
+# Run from the repo parent:  esphome run tide-weather-s3-lcd-7b.yaml
+# ============================================================================
+
+# Substitution variables used through the codebase
+substitutions:
+  icon_font: mdi_icons_40
+  text_font: nunito_20
+  text_color: black
+  bg_color: white
+  button_on_color: "ep_orange"
+  button_off_color: "very_dark_gray"
+  icon_on_color: "yellow"
+  icon_off_color: "gray"
+  label_on_color: "white"
+  label_off_color: "gray"
+  button_text_color: "white"
+
+  # Panel size (Waveshare S3-7B is a 1024x600 panel)
+  screen_width: '1024'
+  screen_height: '600'
+
+  # Standalone (no Home Assistant): pull time from NTP. backlight_time.yaml
+  # defines `system_time` from this swappable source (default: homeassistant).
+  time_source: sntp
+
+  # LCD back light modes - Code in backlight_time.yaml
+  display_daytime_brightness: "100%"
+  display_nighttime_brightness: "50%"
+  display_night_hour: "0"      # Hour for night mode (0-23)
+  display_night_minute: "0"    # Minute for night mode (0-59)
+  display_backlight_timeout_always_enabled: "false"  # Set true to dim/off in all modes, not just Night
+  display_backlight_timeout_initial: "5"  # Initial backlight timeout in minutes (-1 to disable)
+
+
+esphome:
+  name: "tide-weather-s3-lcd-7b"
+  friendly_name: "Tide Clock + Weather (S3-LCD-7B)"
+  on_boot:
+    - priority: 400
+      then:
+        - script.execute: update_loading_page
+    # Standalone (no HA): once the clock is set, start the data fetches and
+    # dismiss the boot screen. Weather self-triggers inside its own module.
+    - priority: -200
+      then:
+        # Land directly on the main page (info_screen is the first page in the
+        # merged list; without this LVGL would show it at boot).
+        - lvgl.page.show: main_page
+    # Paint the tide graph / dial / meter / moon once as soon as the clock is
+    # valid (ESPHome merges multiple on_boot entries; the tide module already
+    # has its own -100 block, this runs in parallel).
+    - priority: -100
+      then:
+        - wait_until:
+            condition:
+              lambda: 'return id(system_time).now().is_valid();'
+            timeout: 120s
+        - script.execute: redraw_tide_graph
+        - script.execute: redraw_tide_dial
+        - script.execute: redraw_tide_meter
+        - script.execute: redraw_moon
+
+logger:
+  level: debug
+  logs:
+    lvgl: info
+
+# The HTTPS weather fetch runs the mbedTLS handshake + JSON-parse callback on
+# ESPHome's "loopTask". Its default stack (ESPHOME_LOOP_TASK_STACK_SIZE = 8192) is
+# too small for a TLS handshake, so it overflows and reboots on EVERY fetch — which
+# is why the weather never populates. Give loopTask a bigger stack. Also lengthen
+# the task watchdog so the blocking fetch can't trip the default 5 s reset.
+esp32:
+  framework:
+    advanced:
+      loop_task_stack_size: 16384
+    sdkconfig_options:
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "30"
+
+# The S3-7B hardware file does not pull in http_request (the P4 files do), so the
+# Pirate Weather module needs it declared here. verify_ssl: false skips CA
+# validation — fine for a display panel and avoids cert-expiry breakage.
+http_request:
+  verify_ssl: false
+  timeout: 10s
+
+# Native API — not needed for standalone operation (time is NTP, not HA), but it
+# provides the transport for `esphome logs --device <ip>` network log monitoring.
+api:
+
+# Use the LOCAL tide component checkout, which exposes predict()/predict_series()
+# used by the graph and meter redraw lambdas. The tide module (local_tide_update.yaml,
+# DO NOT EDIT) pulls github://agillis/esphome-tide, an older build WITHOUT those
+# methods; declaring the local source here supersedes it for the `tide` component.
+external_components:
+  - source:
+      type: local
+      path: esphome-tide/components
+    components: [tide]
+
+# To preview this on the desktop and grab a PNG of the framebuffer, add the
+# lvgl_screenshot component (see AI_tools/SDL-lvgl-screenshot.yaml), then
+# `curl http://localhost:8080/screenshot > shot.png` while the SDL build runs:
+#   external_components:
+#     - source: { type: local, path: esphome-modular-lvgl-buttons/components }
+#       components: [lvgl_screenshot]
+#   lvgl_screenshot:
+#     port: 8080
+
+# Time update script - This is run once per second. Use it to update any time related labels.
+script:
+  # --------------------------------------------------------------------------
+  # This script is called once per minute.
+  # Any packages in this library will !extend time_update to update their own labels.
+  # You can add code here to update your own custom labels.
+  # --------------------------------------------------------------------------
+  - id: time_update
+    then:
+      - lambda: |-
+          // No operation
+
+  # ── Tide graph (canvas) ────────────────────────────────────────────────
+  - id: redraw_tide_graph
+    then:
+      - lambda: |-
+          // ── canvas geometry (overlay-absolute origin of the canvas) ─────────
+          const int LEFT = 58, TOP = 282;      // canvas top-left in overlay coords
+          const int W = 426, H = 132;          // canvas size (must match widget)
+                                               // plot right = 58+426 = 484 (aligns
+                                               // with the stat chips / forecast cards)
+          const int PLOT_TOP = 6, PLOT_BOT = 124;   // 5 ft line / -1 ft line (canvas-y)
+          const int FULL_H = 36;               // hours shown across the canvas
+          const float VMAX = 5.0f;             // ft top of scale
+          const float VMIN = -1.0f;            // ft bottom of scale (room below the lows)
+          static float ys[452];
+
+          auto tnow = id(system_time).now();
+          if (!tnow.is_valid()) return;
+          time_t now = tnow.timestamp;
+          time_t start = now - 6L * 3600;      // window: now-6h .. now+30h
+          long span_s = (long) FULL_H * 3600;  // 36 h
+          int step_s = (int) (span_s / W);     // ~286 s / column
+
+          id(local_tide)->predict_series(start, step_s, W, ys);
+          if (isnan(ys[0])) return;
+
+          lv_obj_t *cv = id(tide_canvas);
+          lv_canvas_fill_bg(cv, lv_color_hex(0x0B1420), LV_OPA_COVER);  // page bg (opaque RGB565)
+
+          // ── Fast direct-buffer drawing ──────────────────────────────────────
+          // lv_canvas_set_px() recomputes the pixel address (lv_draw_buf_goto_xy) on
+          // every call; at ~90k pixels that took ~12 s on the S3 and tripped the task
+          // watchdog. Write the RGB565 buffer directly instead: fetch the aligned base
+          // + row stride once, and encode colors via lv_color16_t so the bytes are
+          // identical to what set_px writes (LV_COLOR_16_SWAP-safe). The graph is fully
+          // opaque (LV_OPA_COVER), so plain overwrites are exact.
+          lv_image_dsc_t *cimg = lv_canvas_get_image(cv);
+          uint8_t *cbuf = (uint8_t *) cimg->data;            // aligned pixel base
+          const uint32_t cstride = cimg->header.stride;      // bytes per row
+          auto enc = [](uint32_t hex) -> uint16_t {
+            lv_color_t c = lv_color_hex(hex);
+            lv_color16_t c16; c16.red = c.red >> 3; c16.green = c.green >> 2; c16.blue = c.blue >> 3;
+            uint16_t v; memcpy(&v, &c16, sizeof(v)); return v;
+          };
+          const uint16_t p_grid = enc(0x1B2836), p_fill = enc(0x123243), p_line = enc(0x5FD4F4),
+                         p_ring = enc(0x5FD4F4), p_mctr = enc(0x0C1626), p_now = enc(0xE8483F),
+                         p_day = enc(0x101D2D), p_daydiv = enc(0x3E5570);
+          auto setpx = [&](int x, int y, uint16_t v) {
+            if ((unsigned) x < (unsigned) W && (unsigned) y < (unsigned) H)
+              *(uint16_t *) (cbuf + (uint32_t) y * cstride + (uint32_t) x * 2) = v;
+          };
+          auto vspan = [&](int x, int ya, int yb, uint16_t v) {   // column x, rows ya..yb incl.
+            if ((unsigned) x >= (unsigned) W) return;
+            if (ya < 0) ya = 0;
+            if (yb > H - 1) yb = H - 1;
+            uint8_t *p = cbuf + (uint32_t) ya * cstride + (uint32_t) x * 2;
+            for (int y = ya; y <= yb; y++, p += cstride) *(uint16_t *) p = v;
+          };
+          auto hspan = [&](int y, int xa, int xb, uint16_t v) {   // row y, cols xa..xb incl.
+            if ((unsigned) y >= (unsigned) H) return;
+            if (xa < 0) xa = 0;
+            if (xb > W - 1) xb = W - 1;
+            uint16_t *p = (uint16_t *) (cbuf + (uint32_t) y * cstride) + xa;
+            for (int x = xa; x <= xb; x++) *p++ = v;
+          };
+
+          // ── Day/night shading ──────────────────────────────────────────────
+          // Lighten the columns where the sun is up (real sunrise/sunset for this
+          // lat/lon via a low-precision solar-altitude formula), so the night hours
+          // read darker. LAT/LON = Warwick, RI — update if the location changes.
+          {
+            const double LAT = 41.70, LON = -71.42;
+            const double D2R = 3.14159265358979 / 180.0;
+            for (int x = 0; x < W; x++) {
+              time_t te = start + (time_t) ((long) x * step_s);
+              double nn = (double) te / 86400.0 + 2440587.5 - 2451545.0;
+              double L = fmod(280.460 + 0.9856474 * nn, 360.0);
+              double g = fmod(357.528 + 0.9856003 * nn, 360.0);
+              double lam = L + 1.915 * sin(g * D2R) + 0.020 * sin(2 * g * D2R);
+              double eps = 23.439 - 0.0000004 * nn;
+              double dec = asin(sin(eps * D2R) * sin(lam * D2R));
+              double alpha = atan2(cos(eps * D2R) * sin(lam * D2R), cos(lam * D2R));
+              double gmst = fmod(280.46061837 + 360.98564736629 * nn, 360.0);
+              double ha = (gmst + LON) * D2R - alpha;
+              double alt = asin(sin(LAT * D2R) * sin(dec) + cos(LAT * D2R) * cos(dec) * cos(ha));
+              if (alt > -0.0145)                       // sun above -0.833 deg -> daytime
+                vspan(x, 0, H - 1, p_day);
+            }
+          }
+
+          // value -> canvas y (clamped to the plot band), scale VMIN..VMAX
+          auto yfor = [&](float v) -> int {
+            int y = PLOT_BOT - (int) lroundf(((v - VMIN) / (VMAX - VMIN)) * (float) (PLOT_BOT - PLOT_TOP));
+            return y < 0 ? 0 : (y > H - 1 ? H - 1 : y);
+          };
+          int y0 = yfor(VMIN);   // baseline for the area fill (bottom axis = -1 ft)
+
+          // 5 horizontal gridlines at 1..5 ft (drawn under the fill/curve)
+          const float glv[5] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+          for (int g = 0; g < 5; g++) hspan(yfor(glv[g]), 0, W - 1, p_grid);
+
+          // filled area under the curve down to the 0 ft baseline
+          for (int x = 0; x < W; x++) {
+            int y = yfor(ys[x]);
+            vspan(x, y < y0 ? y : y0, y < y0 ? y0 : y, p_fill);
+          }
+
+          // re-stroke gridlines over the fill so they stay faintly visible
+          for (int g = 0; g < 5; g++) hspan(yfor(glv[g]), 0, W - 1, p_grid);
+
+          // the curve line (2 px), connecting adjacent columns
+          int prevy = yfor(ys[0]);
+          for (int x = 0; x < W; x++) {
+            int y = yfor(ys[x]);
+            int a = y < prevy ? y : prevy, b = y < prevy ? prevy : y;
+            vspan(x, a, b + 1, p_line);   // +1 row gives the 2px thickness (vspan clamps)
+            prevy = y;
+          }
+
+          // ── high/low open-circle markers + time label ABOVE each ────────────
+          lv_obj_t *mlab[8] = {id(sg_marklbl0), id(sg_marklbl1), id(sg_marklbl2), id(sg_marklbl3),
+                               id(sg_marklbl4), id(sg_marklbl5), id(sg_marklbl6), id(sg_marklbl7)};
+          int mi = 0;
+          int lastdir = 0;
+          for (int x = 1; x < W; x++) {
+            int dir = ys[x] > ys[x - 1] ? 1 : (ys[x] < ys[x - 1] ? -1 : 0);
+            if (dir != 0 && lastdir != 0 && dir != lastdir) {
+              int cx = x - 1, cy = yfor(ys[x - 1]);
+              // ring
+              for (int dy = -5; dy <= 5; dy++)
+                for (int dx = -5; dx <= 5; dx++) {
+                  int d2 = dx * dx + dy * dy;
+                  if (d2 <= 25 && d2 >= 7) setpx(cx + dx, cy + dy, p_ring);
+                }
+              // hollow centre (bg color)
+              for (int dy = -3; dy <= 3; dy++)
+                for (int dx = -3; dx <= 3; dx++)
+                  if (dx * dx + dy * dy <= 9) setpx(cx + dx, cy + dy, p_mctr);
+              // Time label: HIGHs get the label ABOVE the marker, LOWs BELOW — so the
+              // curve line never crosses the text. lastdir>0 means we were rising into
+              // this turning point, i.e. it is a peak (high tide).
+              if (mi < 8 && cx > 12 && cx < W - 12) {
+                bool is_high = (lastdir > 0);
+                // Sub-column (parabolic-vertex) refinement: the raw column step is
+                // ~5 min, so interpolate between the neighbouring samples to the true
+                // peak/trough, then round to the nearest minute — otherwise the label
+                // can read a couple of minutes off the actual tide time.
+                float y0p = ys[cx - 1], y1p = ys[cx], y2p = ys[cx + 1];
+                float den = y0p - 2.0f * y1p + y2p;
+                float dxoff = (fabsf(den) > 1e-6f) ? 0.5f * (y0p - y2p) / den : 0.0f;
+                if (dxoff > 1.0f) dxoff = 1.0f;
+                else if (dxoff < -1.0f) dxoff = -1.0f;
+                time_t te = start + (time_t) lroundf(((float) cx + dxoff) * (float) step_s) + 30;
+                struct tm lt;
+                localtime_r(&te, &lt);
+                int h12 = lt.tm_hour % 12; if (h12 == 0) h12 = 12;
+                char lb[10];
+                snprintf(lb, sizeof(lb), "%d:%02d%s", h12, lt.tm_min, lt.tm_hour < 12 ? "AM" : "PM");
+                lv_label_set_text(mlab[mi], lb);
+                lv_obj_set_x(mlab[mi], LEFT + cx - 22);
+                lv_obj_set_y(mlab[mi], is_high ? (TOP + cy - 24) : (TOP + cy + 8));
+                lv_obj_clear_flag(mlab[mi], LV_OBJ_FLAG_HIDDEN);
+                mi++;
+              }
+            }
+            if (dir != 0) lastdir = dir;
+          }
+          for (; mi < 8; mi++) lv_obj_add_flag(mlab[mi], LV_OBJ_FLAG_HIDDEN);
+
+          // ── x-axis ticks every 6 h, aligned to LOCAL time. At each local midnight
+          // draw a subtle day-divider line and label it with the date ("SUN 20")
+          // instead of "12AM", so the start of a new day is obvious on the chart.
+          lv_obj_t *xlab[8] = {id(xlbl0), id(xlbl1), id(xlbl2), id(xlbl3),
+                               id(xlbl4), id(xlbl5), id(xlbl6), id(xlbl7)};
+          struct tm lt0;
+          localtime_r(&start, &lt0);
+          lt0.tm_sec = 0; lt0.tm_min = 0;
+          lt0.tm_hour = (lt0.tm_hour / 6) * 6;        // floor to a local 6 h boundary
+          time_t first = mktime(&lt0);
+          while (first < start) first += 21600L;
+          int li = 0;
+          for (time_t te = first; te <= start + span_s && li < 8; te += 21600L) {
+            int gx = (int) ((long) (te - start) * W / span_s);
+            if (gx < 0 || gx >= W) continue;
+            struct tm lt;
+            localtime_r(&te, &lt);
+            char lb[12];
+            if (lt.tm_hour == 0) {                     // local midnight -> day boundary
+              vspan(gx, 0, H - 1, p_daydiv);
+              strftime(lb, sizeof(lb), "%a %d", &lt);             // "Sun 20"
+              if (lb[4] == '0') memmove(&lb[4], &lb[5], strlen(&lb[5]) + 1);
+              for (char *c = lb; *c; c++) *c = toupper(*c);       // "SUN 20"
+              lv_obj_set_style_text_color(xlab[li], lv_color_hex(0xAEBFD0), LV_PART_MAIN);
+              lv_obj_set_x(xlab[li], LEFT + gx - 20);
+            } else {
+              int h12 = lt.tm_hour % 12; if (h12 == 0) h12 = 12;
+              snprintf(lb, sizeof(lb), "%d%s", h12, lt.tm_hour < 12 ? "AM" : "PM");
+              lv_obj_set_style_text_color(xlab[li], lv_color_hex(0x7C90A5), LV_PART_MAIN);
+              lv_obj_set_x(xlab[li], LEFT + gx - 14);
+            }
+            lv_label_set_text(xlab[li], lb);
+            lv_obj_set_y(xlab[li], TOP + H + 4);
+            lv_obj_clear_flag(xlab[li], LV_OBJ_FLAG_HIDDEN);
+            li++;
+          }
+          for (; li < 8; li++) lv_obj_add_flag(xlab[li], LV_OBJ_FLAG_HIDDEN);
+
+          // ── NOW vertical accent line (2 px, drawn on top of the day-divider) ─
+          int nowx = (int) (((long) (now - start)) * W / span_s);
+          if (nowx >= 0 && nowx < W) {
+            vspan(nowx, 0, H - 1, p_now);
+            vspan(nowx + 1, 0, H - 1, p_now);
+          }
+
+          lv_obj_invalidate(cv);
+
+  # ── Tide dial (rings + ticks on the transparent dial canvas) ───────────
+  - id: redraw_tide_dial
+    then:
+      - lambda: |-
+          lv_obj_t *cv = id(dial_canvas);
+          lv_color_t c_tick  = lv_color_hex(0x5B6E83);  // spec dial tick color
+          lv_color_t c_ring  = lv_color_hex(0x24303E);  // spec ring stroke
+          lv_canvas_fill_bg(cv, lv_color_hex(0x000000), LV_OPA_TRANSP);   // fully transparent bg
+
+          const float CX = 194.0f, CY = 194.0f;         // dial center (canvas-local)
+          const float S  = 0.97f;                        // 388/400 design->px scale
+
+          auto setpx = [&](int x, int y, lv_color_t col) {
+            if (x >= 0 && x < 388 && y >= 0 && y < 388)
+              lv_canvas_set_px(cv, x, y, col, LV_OPA_COVER);
+          };
+          // stroke a circle of radius r (in px) as a 1px ring
+          auto ring = [&](float r, lv_color_t col) {
+            int steps = (int) (2.0f * 3.14159265f * r) + 8;
+            for (int i = 0; i < steps; i++) {
+              float a = 2.0f * 3.14159265f * i / steps;
+              setpx((int) lroundf(CX + r * cosf(a)), (int) lroundf(CY + r * sinf(a)), col);
+            }
+          };
+          // thick line from (x1,y1) to (x2,y2), half-width hw (0 => 1px, 1 => 3px)
+          auto line = [&](float x1, float y1, float x2, float y2, int hw, lv_color_t col) {
+            float dx = x2 - x1, dy = y2 - y1;
+            int n = (int) (fmaxf(fabsf(dx), fabsf(dy))) + 1;
+            for (int i = 0; i <= n; i++) {
+              float t = (float) i / n;
+              float px = x1 + dx * t, py = y1 + dy * t;
+              for (int oy = -hw; oy <= hw; oy++)
+                for (int ox = -hw; ox <= hw; ox++)
+                  setpx((int) lroundf(px) + ox, (int) lroundf(py) + oy, col);
+            }
+          };
+
+          // outer ring (design r192 -> 186.2px), drawn 2px; inner ring (design r168 -> 163.0px)
+          ring(186.2f, c_ring);
+          ring(185.2f, c_ring);
+          ring(163.0f, c_ring);
+
+          // Minor ticks every 30deg (r155->168, ~1px). The 12 & 6 o'clock positions
+          // (i==0, i==6) get no tick — the HIGH/LOW boat markers sit there instead.
+          for (int i = 0; i < 12; i++) {
+            if (i == 0 || i == 6) continue;
+            float a = (i * 30 - 90) * 3.14159265f / 180.0f;
+            float r1 = 155.0f * S;
+            float r2 = 168.0f * S;
+            line(CX + r1 * cosf(a), CY + r1 * sinf(a),
+                 CX + r2 * cosf(a), CY + r2 * sinf(a), 0, c_tick);
+          }
+
+          // (The needle is the tide_level image indicator on the dial meter, rotated
+          // automatically from tide_percentage — not drawn here. This script only
+          // paints the static rings + ticks, so it runs once at boot.)
+          lv_obj_invalidate(cv);
+
+  # ── Tide state (rising/falling) text below the dial ────────────────────
+  - id: redraw_tide_state
+    then:
+      - lambda: |-
+          // Direction from the tide height trend (tide_percentage is "time until
+          // high", not a rise/fall flag): compare now vs +10 min.
+          auto tn = id(system_time).now();
+          if (!tn.is_valid()) return;
+          time_t nn = tn.timestamp;
+          bool rising = id(local_tide)->predict(nn + 600) > id(local_tide)->predict(nn);
+          lv_label_set_text(id(tide_state_label), rising ? "TIDE RISING" : "TIDE FALLING");
+
+  # ── Segmented vertical tide meter (right column) ───────────────────────
+  - id: redraw_tide_meter
+    then:
+      - lambda: |-
+          // Track (segment stack) pixel span. Must match the meter_track obj y/height
+          // below: y=190, height=370  ->  bottom pixel = 560.
+          const int TRACK_TOP = 186;
+          const int TRACK_BOTTOM = 524;
+          const int SPAN = TRACK_BOTTOM - TRACK_TOP;   // 338 px
+          const int PTR_H = 16;                        // pointer triangle height
+
+          auto tnow = id(system_time).now();
+          if (!tnow.is_valid()) return;
+          time_t now = tnow.timestamp;
+
+          // Current instantaneous water level (ft) from the offline tide engine.
+          float level = id(local_tide)->predict(now);
+          if (isnan(level)) return;
+
+          // Endpoints of the scale come from the tide sensors (published in ft).
+          float low  = id(low_tide_level)->has_state()  ? id(low_tide_level)->state  : 0.0f;
+          float high = id(high_tide_level)->has_state() ? id(high_tide_level)->state : 5.0f;
+
+          // Top / bottom endpoint labels (integer-.1 ft, no unit — unit is a static span).
+          char b[24];
+          snprintf(b, sizeof(b), "%.1f", high);
+          lv_label_set_text(id(meter_top_ft), b);
+          snprintf(b, sizeof(b), "%.1f", low);
+          lv_label_set_text(id(meter_bottom_ft), b);
+
+          // Live readout value (the "ft" unit label lives beside it as a static child).
+          snprintf(b, sizeof(b), "%.1f", level);
+          lv_label_set_text(id(meter_readout), b);
+
+          // percent up the track: 0 at low (bottom), 1 at high (top). Clamp to [0,1].
+          float denom = high - low;
+          float pct = (denom > 0.001f) ? (level - low) / denom : 0.0f;
+          if (pct < 0.0f) pct = 0.0f;
+          if (pct > 1.0f) pct = 1.0f;
+
+          // Vertical center of the indicator at this level. y grows downward, so higher
+          // water (pct->1) maps to a SMALLER y (nearer TRACK_TOP).
+          int center_y = (int) lroundf(TRACK_BOTTOM - pct * SPAN);
+
+          // Pointer: place its top-left so the triangle centers on center_y; clamp so the
+          // tip never leaves the track ends.
+          int ptr_y = center_y - PTR_H / 2;
+          if (ptr_y < TRACK_TOP - PTR_H / 2)    ptr_y = TRACK_TOP - PTR_H / 2;
+          if (ptr_y > TRACK_BOTTOM - PTR_H / 2) ptr_y = TRACK_BOTTOM - PTR_H / 2;
+          lv_obj_set_y(id(meter_pointer), ptr_y);
+
+          // Readout box: vertically center on center_y, clamp fully inside the track span.
+          lv_obj_t *ro = id(meter_readout_box);
+          int ro_h = lv_obj_get_height(ro);
+          if (ro_h <= 0) ro_h = 34;                     // fallback before first layout pass
+          int ro_y = center_y - ro_h / 2;
+          if (ro_y < TRACK_TOP)          ro_y = TRACK_TOP;
+          if (ro_y > TRACK_BOTTOM - ro_h) ro_y = TRACK_BOTTOM - ro_h;
+          lv_obj_set_y(ro, ro_y);
+
+  # ── Moon phase widget (disc + 3 labels) ────────────────────────────────
+  - id: redraw_moon
+    then:
+      - lambda: |-
+          auto tnow = id(system_time).now();
+          if (!tnow.is_valid()) return;
+          time_t now = tnow.timestamp;
+
+          // ── Moon phase via Meeus, "Astronomical Algorithms" 2nd ed., ch.49 ──────
+          // Accurate to ~1 minute vs published values (no hardcoded epoch/drift).
+          // moon(k): JDE of the lunar phase at lunation k — frac(k) .00 new, .25 first
+          // quarter, .50 full, .75 last quarter. New & full share one periodic-term
+          // table; the quarters use another plus the W term; the 14 planetary A-terms
+          // apply to all. (Delta-T ~1 min ignored; negligible for a displayed date.)
+          const double D2R = 3.14159265358979323846 / 180.0;
+          double jd_now = (double) now / 86400.0 + 2440587.5;
+          double kapprox = (jd_now - 2451545.0) / 365.25 * 12.3685;
+          auto moon = [&](double k) -> double {
+            double T = k / 1236.85, T2 = T * T, T3 = T2 * T, T4 = T3 * T;
+            double jde = 2451550.09766 + 29.530588861 * k + 0.00015437 * T2
+                       - 0.000000150 * T3 + 0.00000000073 * T4;
+            double M  = 2.5534 + 29.10535670 * k - 0.0000014 * T2 - 0.00000011 * T3;
+            double Mp = 201.5643 + 385.81693528 * k + 0.0107582 * T2 + 0.00001238 * T3 - 0.000000058 * T4;
+            double Fa = 160.7108 + 390.67050284 * k - 0.0016118 * T2 - 0.00000227 * T3 + 0.000000011 * T4;
+            double Om = 124.7746 - 1.56375588 * k + 0.0020672 * T2 + 0.00000215 * T3;
+            double E  = 1.0 - 0.002516 * T - 0.0000074 * T2;
+            auto sd = [&](double d) { return sin(d * D2R); };
+            auto cd = [&](double d) { return cos(d * D2R); };
+            double fr = k - floor(k);
+            bool quarter = (fr > 0.1 && fr < 0.4) || (fr > 0.6 && fr < 0.9);
+            double c;
+            if (!quarter) {
+              c = -0.40720 * sd(Mp) + 0.17241 * E * sd(M) + 0.01608 * sd(2 * Mp)
+                + 0.01039 * sd(2 * Fa) + 0.00739 * E * sd(Mp - M) - 0.00514 * E * sd(Mp + M)
+                + 0.00208 * E * E * sd(2 * M) - 0.00111 * sd(Mp - 2 * Fa) - 0.00057 * sd(Mp + 2 * Fa)
+                + 0.00056 * E * sd(2 * Mp + M) - 0.00042 * sd(3 * Mp) + 0.00042 * E * sd(M + 2 * Fa)
+                + 0.00038 * E * sd(M - 2 * Fa) - 0.00024 * E * sd(2 * Mp - M) - 0.00017 * sd(Om)
+                - 0.00007 * sd(Mp + 2 * M) + 0.00004 * sd(2 * Mp - 2 * Fa) + 0.00004 * sd(3 * M)
+                + 0.00003 * sd(Mp + M - 2 * Fa) + 0.00003 * sd(2 * Mp + 2 * Fa) - 0.00003 * sd(Mp + M + 2 * Fa)
+                + 0.00003 * sd(Mp - M + 2 * Fa) - 0.00002 * sd(Mp - M - 2 * Fa) - 0.00002 * sd(3 * Mp + M)
+                + 0.00002 * sd(4 * Mp);
+            } else {
+              c = -0.62801 * sd(Mp) + 0.17172 * E * sd(M) - 0.01183 * E * sd(Mp + M)
+                + 0.00862 * sd(2 * Mp) + 0.00804 * sd(2 * Fa) + 0.00454 * E * sd(Mp - M)
+                + 0.00204 * E * E * sd(2 * M) - 0.00180 * sd(Mp - 2 * Fa) - 0.00070 * sd(Mp + 2 * Fa)
+                - 0.00040 * sd(3 * Mp) - 0.00034 * E * sd(2 * Mp - M) + 0.00032 * E * sd(M + 2 * Fa)
+                + 0.00032 * E * sd(M - 2 * Fa) - 0.00028 * E * E * sd(Mp + 2 * M) + 0.00027 * E * sd(2 * Mp + M)
+                - 0.00017 * sd(Om) - 0.00005 * sd(Mp - M - 2 * Fa) + 0.00004 * sd(2 * Mp + 2 * Fa)
+                - 0.00004 * sd(Mp + M + 2 * Fa) + 0.00004 * sd(Mp - 2 * M) + 0.00003 * sd(Mp + M - 2 * Fa)
+                + 0.00003 * sd(3 * M) + 0.00002 * sd(2 * Mp - 2 * Fa) + 0.00002 * sd(Mp - M + 2 * Fa)
+                - 0.00002 * sd(3 * Mp + M);
+              double W = 0.00306 - 0.00038 * E * cd(M) + 0.00026 * cd(Mp) - 0.00002 * cd(Mp - M)
+                       + 0.00002 * cd(Mp + M) + 0.00002 * cd(2 * Fa);
+              c += (fr < 0.5) ? W : -W;
+            }
+            double A1 = 299.77 + 0.107408 * k - 0.009173 * T2, A2 = 251.88 + 0.016321 * k,
+                   A3 = 251.83 + 26.651886 * k, A4 = 349.42 + 36.412478 * k, A5 = 84.66 + 18.206239 * k,
+                   A6 = 141.74 + 53.303771 * k, A7 = 207.14 + 2.453732 * k, A8 = 154.84 + 7.306860 * k,
+                   A9 = 34.52 + 27.261239 * k, A10 = 207.19 + 0.121824 * k, A11 = 291.34 + 1.844379 * k,
+                   A12 = 161.72 + 24.198154 * k, A13 = 239.56 + 25.513099 * k, A14 = 331.55 + 3.592518 * k;
+            c += 0.000325 * sd(A1) + 0.000165 * sd(A2) + 0.000164 * sd(A3) + 0.000126 * sd(A4)
+               + 0.000110 * sd(A5) + 0.000062 * sd(A6) + 0.000060 * sd(A7) + 0.000056 * sd(A8)
+               + 0.000047 * sd(A9) + 0.000042 * sd(A10) + 0.000040 * sd(A11) + 0.000037 * sd(A12)
+               + 0.000035 * sd(A13) + 0.000023 * sd(A14);
+            return jde + c;
+          };
+
+          // Bracket the current lunation: prev_new <= now < next_new.
+          double kf = floor(kapprox);
+          for (int it = 0; it < 6; it++) {
+            if (moon(kf) > jd_now) kf -= 1.0;
+            else if (moon(kf + 1.0) <= jd_now) kf += 1.0;
+            else break;
+          }
+          double prev_new = moon(kf), next_new = moon(kf + 1.0);
+          double j_fq = moon(kf + 0.25), j_full = moon(kf + 0.5), j_lq = moon(kf + 0.75);
+          double p = (jd_now - prev_new) / (next_new - prev_new);
+          if (p < 0) p = 0;
+          if (p > 1) p = 1;
+
+          // ── Paint the true lunar terminator onto moon_canvas ──────────────────
+          // The terminator (day/night line) projects to a half-ellipse: at row y its
+          // signed x-offset from centre is cos(2*pi*p) * sqrt(R^2 - y^2). Waxing
+          // (p<0.5) lights the RIGHT half, waning the LEFT (N. hemisphere). The old
+          // "slide an equal disc" trick gave a circular-arc terminator: it over-lit
+          // crescents by ~17 pts and bulged the quarter to ~61% instead of 50%.
+          lv_obj_t *mc = id(moon_canvas);
+          const int MOON_D = 74;
+          const double MOON_C = (MOON_D - 1) / 2.0;    // disc centre (36.5), measured
+          const double MOON_R = 33.5;                  // bright-disc radius: moon_wiki.svg
+                                                       // renders with ~3.5px pad, not full 37
+          const double cph = cos(6.283185307179586 * p);
+          const lv_color_t shcol = lv_color_hex(0x0B1420);
+          lv_canvas_fill_bg(mc, shcol, LV_OPA_TRANSP); // start fully transparent
+          for (int yy = 0; yy < MOON_D; yy++) {
+            double dy = (double) yy - MOON_C;
+            double h2 = MOON_R * MOON_R - dy * dy;
+            if (h2 <= 0.0) continue;
+            double half = sqrt(h2);                    // disc half-width at this row
+            double xt = cph * half;                    // signed terminator x
+            for (int xx = 0; xx < MOON_D; xx++) {
+              double dx = (double) xx - MOON_C;
+              double rr = sqrt(dx * dx + dy * dy);
+              if (rr > MOON_R + 0.5) continue;          // outside the disc
+              double d = (p < 0.5) ? (dx - xt) : (-xt - dx);  // >0 lit, <0 shadow
+              double cov = 0.5 - d;                     // 1px soft terminator edge
+              if (cov <= 0.0) continue;                 // lit -> stays transparent
+              if (cov > 1.0) cov = 1.0;
+              double limb = MOON_R + 0.5 - rr;          // feather the outer edge
+              if (limb < 1.0) cov *= (limb < 0.0 ? 0.0 : limb);
+              lv_canvas_set_px(mc, xx, yy, shcol, (lv_opa_t) lroundf((float)(cov * 224.0)));
+            }
+          }
+          lv_obj_invalidate(mc);
+
+          // Phase name: nearest primary phase within 0.74 day of the exact event,
+          // else crescent/gibbous by which pair of events we're between.
+          double ejde[5] = {prev_new, j_fq, j_full, j_lq, next_new};
+          const char *enm[5] = {"New Moon", "First Quarter", "Full Moon", "Last Quarter", "New Moon"};
+          double best = 1e9; const char *nearest = "New Moon";
+          for (int i = 0; i < 5; i++) {
+            double d = fabs(jd_now - ejde[i]);
+            if (d < best) { best = d; nearest = enm[i]; }
+          }
+          const char *pname;
+          if (best < 0.74) pname = nearest;
+          else if (jd_now < j_fq) pname = "Waxing Crescent";
+          else if (jd_now < j_full) pname = "Waxing Gibbous";
+          else if (jd_now < j_lq) pname = "Waning Gibbous";
+          else pname = "Waning Crescent";
+          lv_label_set_text(id(moon_phase_name), pname);
+
+          // Next full / next new -> local dates.
+          double nf = (j_full >= jd_now) ? j_full : moon(kf + 1.5);
+          time_t tFull = (time_t) llround((nf - 2440587.5) * 86400.0);
+          time_t tNew  = (time_t) llround((next_new - 2440587.5) * 86400.0);
+          struct tm lt;
+          char dbuf[16], line[48];
+          localtime_r(&tFull, &lt);
+          strftime(dbuf, sizeof(dbuf), "%b %d", &lt);
+          if (dbuf[4] == '0') memmove(&dbuf[4], &dbuf[5], strlen(&dbuf[5]) + 1);
+          snprintf(line, sizeof(line), "Full moon \xC2\xB7 %s", dbuf);
+          lv_label_set_text(id(moon_next_full), line);
+
+          localtime_r(&tNew, &lt);
+          strftime(dbuf, sizeof(dbuf), "%b %d", &lt);
+          if (dbuf[4] == '0') memmove(&dbuf[4], &dbuf[5], strlen(&dbuf[5]) + 1);
+          snprintf(line, sizeof(line), "New moon \xC2\xB7 %s", dbuf);
+          lv_label_set_text(id(moon_next_new), line);
+
+# ── Periodic redraws (tide moves slowly; keeps NOW line + level fresh) ──────
+interval:
+  - interval: 30s
+    then:
+      - script.execute: redraw_tide_graph
+      - script.execute: redraw_tide_meter
+      - script.execute: redraw_tide_state
+  - interval: 300s
+    then:
+      - script.execute: redraw_moon
+
+# ── Dashboard-local images (needle for the dial meter, meter pointer) ───────
+image:
+  # Teardrop rim-pointer for the tide dial. It is the image indicator on the dial
+  # meter (id tide_level), rotated automatically by local_tide_update.yaml's
+  # tide_percentage binding — 0% = 12 o'clock (HIGH), 50% = 6 o'clock (LOW).
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/tide_dial_needle.svg
+    id: tide_dial_needle_img
+    resize: 388x388
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/meter_pointer.svg
+    id: meter_pointer_img
+    resize: 12x16
+  # Full-moon base disc (Wikimedia "Weather icon - full moon"); the lunar phase is
+  # painted over it by redraw_moon on the transparent moon_canvas overlay.
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/moon_wiki.svg
+    id: moon_full_img
+    resize: 74x74
+
+  # Boat markers for the tide dial (traced from the hand-drawn sketches, recoloured
+  # light for the dark face): upright = HIGH tide (12 o'clock), heeled over = LOW (6).
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/boat_high_tide.svg
+    id: boat_high_img
+    resize: 42x46
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/boat_low_tide.svg
+    id: boat_low_img
+    resize: 54x36
+
+packages:
+  # Wi-Fi (station + fallback AP + captive portal + web_server). Needed for NTP
+  # and the Pirate Weather fetch.
+  wifi: !include esphome-modular-lvgl-buttons/common/wifi.yaml
+  # Enable OTA updates with an on-screen status overlay
+  ota_screen: !include esphome-modular-lvgl-buttons/common/ota.yaml
+  # All the colors, fonts (incl. nunito), glyphs, LVGL theme/style
+  theme:  !include esphome-modular-lvgl-buttons/common/theme/index.yaml
+  # Basic sensors (WiFi signal, CPU temp, restart / factory-reset, wifi_info)
+  sensors: !include esphome-modular-lvgl-buttons/common/sensors_base.yaml
+  # Use this theme for debugging
+  # theme:  !include esphome-modular-lvgl-buttons/common/theme/index_debug.yaml  # uncomment to enable debug outlines
+  # Backlight day/evening/night control. Defines `system_time`; the top-level
+  # `time_source: sntp` substitution turns it into an NTP clock (no HA).
+  backlight: !include esphome-modular-lvgl-buttons/common/backlight_time.yaml
+
+  # Hardware description file (Waveshare ESP32-S3-Touch-LCD-7B, 1024x600 mipi_rgb)
+  hardware: !include
+    file: esphome-modular-lvgl-buttons/hardware/waveshare-esp32-s3-touch-lcd-7B.yaml
+    vars:
+      rotation: "0"   # set screen rotation 0, 90, 180, 270
+
+  # Neutral boot screen (no Home Assistant logo/text)
+  loading_screen: !include
+    file: esphome-modular-lvgl-buttons/pages/loading_standalone.yaml
+    vars:
+      boot_screen_hidden: "true"   # skip boot screen; go straight to main page
+  # info screen - WiFi login, IP address, MAC address etc
+  info_screen: !include esphome-modular-lvgl-buttons/pages/info.yaml
+
+  # Flip clock — lands in the (782,16)-(1014,138) grid cell (row 1, column 1)
+  flip_clock: !include
+    file: esphome-modular-lvgl-buttons/ui/clock/flip_clock.yaml
+    vars:
+      uid: flip_clock
+      page_id: main_page
+      row: 1
+      column: 1
+      row_span: 1
+      column_span: 1
+      height: 100%
+      font_size: 54
+      show_date: true
+
+  # Tide forecast package
+  # Offline tide prediction — computed on-device, no NOAA API
+  tide_info: !include
+    file: esphome-modular-lvgl-buttons/ui/tides/local_tide_update.yaml
+    vars:
+      # East Greenwich, RI (8454578) harmonic constants. Offline — no API.
+      # Regenerate for another station: generator/generate_station.py --id <NOAA id>
+      tide_station_data: "TIDE1|U=m|Z0=0.6280|D=MLLW|MHW=1.2890|MLW=0.0520|M2:0.569:6.6|S2:0.126:32.5|N2:0.132:352.2|K1:0.062:157|M4:0.081:55.2|O1:0.047:204|M6:0.017:287.2|MK3:0.013:35.7|S4:0.007:40.3|MN4:0.033:8|NU2:0.024:349|MU2:0.026:354|2N2:0.018:331.1|OO1:0.003:216.5|LAM2:0.002:330.2|S1:0.018:188.3|M1:0.002:155.6|J1:0.009:197|SA:0.06:131.8|RHO:0.006:219.9|Q1:0.021:171.5|T2:0.013:36.6|R2:0.01:246.5|2Q1:0.008:266.9|P1:0.017:155|2SM2:0.002:52.6|M3:0.013:74|L2:0.008:317.9|2MK3:0.01:15.3|K2:0.032:18.1|M8:0.001:72.6|MS4:0.018:136.2"
+      tide_units: ft
+
+# Weather packages
+  # Display weather forecast using direct HA action (no template sensor needed!)
+  # Icons are included automatically in the action file
+  # Weather direct from Pirate Weather (no Home Assistant)
+  pirate_weather: !include
+    file: esphome-modular-lvgl-buttons/ui/weather/pirate_weather.yaml
+    vars:
+      pw_key: !secret pirate_weather_key
+      pw_lat: !secret latitude
+      pw_lon: !secret longitude
+      today_size: 84
+      forecast_size: 40
+      # Include the hourly block so weather_summary_today shows the hourly narrative
+      # ("Light rain this evening") rather than the terse currently.summary. The
+      # ~50 KB JSON parses into PSRAM (ESPHome's JSON uses a PSRAM allocator); the
+      # reboot was a too-small loopTask stack, not memory — see the esp32: block.
+      pw_exclude: "minutely,alerts,flags"
+      pw_max_response: "65536"
+
+  # AQI pill add-on (uses pirate_weather data; pairs with the widget below)
+  aqi_pill: !include esphome-modular-lvgl-buttons/ui/weather/aqi_pill.yaml
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FONTS — dark redesign (Space Grotesk + IBM Plex Sans via gfonts). See spec.
+# ═══════════════════════════════════════════════════════════════════════════
+font:
+  # Big temperature "70°" (bpp 8, digits + degree)
+  - file: "gfonts://Space+Grotesk@600"
+    id: sg_84
+    size: 84
+    bpp: 8
+    glyphs: "0123456789°-"
+
+  # Meter top/bottom/readout ft labels
+  - file: "gfonts://Space+Grotesk@600"
+    id: sg_27
+    size: 27
+    bpp: 4
+
+  # Dial center times
+  - file: "gfonts://Space+Grotesk@600"
+    id: sg_25
+    size: 25
+    bpp: 4
+
+  # Stat-chip values, forecast hi
+  - file: "gfonts://Space+Grotesk@600"
+    id: sg_20
+    size: 20
+    bpp: 4
+
+  # Dial numerals 1..5
+  - file: "gfonts://Space+Grotesk@500"
+    id: sg_19
+    size: 19
+    bpp: 4
+    glyphs: "12345"
+
+  # AQI number
+  - file: "gfonts://Space+Grotesk@700"
+    id: sg_18
+    size: 18
+    bpp: 4
+
+  # Graph markers / NOW, forecast lo, meter unit
+  - file: "gfonts://Space+Grotesk@600"
+    id: sg_14
+    size: 14
+    bpp: 4
+
+  # Forecast summary text
+  - file: "gfonts://IBM+Plex+Sans@400"
+    id: plex_14
+    size: 14
+    bpp: 4
+
+  # Moon phase name (15% larger than plex_14)
+  - file: "gfonts://IBM+Plex+Sans@600"
+    id: plex_16
+    size: 16
+    bpp: 4
+
+  # Graph axis labels, moon dates
+  - file: "gfonts://IBM+Plex+Sans@500"
+    id: plex_13
+    size: 13
+    bpp: 4
+
+  # Section labels (uppercase), moon subtitles
+  - file: "gfonts://IBM+Plex+Sans@500"
+    id: plex_11
+    size: 11
+    bpp: 4
+
+  # Chip labels, captions (uppercase)
+  - file: "gfonts://IBM+Plex+Sans@600"
+    id: plex_10
+    size: 10
+    bpp: 4
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LVGL — dark 1024x600 dashboard
+# ═══════════════════════════════════════════════════════════════════════════
+lvgl:
+  pages:
+    - id: main_page
+      bg_color: 0x0B1420
+      # Explicit pixel grid so the flip clock's grid_cell_* lands in the
+      # (782,16)-(1014,138) cell. Everything else lives in the transparent
+      # full-span overlay (no layout, absolute x/y).
+      layout:
+        type: grid
+        # Clock cell = column 1 / row 1. The trailing FR track (16 px) matches the
+        # 16 px top track, so the flip clock is equidistant from the top & right edges.
+        grid_columns: [776, 232, FR(1)]
+        grid_rows: [16, 122, FR(1)]
+      widgets:
+        # ── Transparent full-span overlay: ALL content except the flip clock ──
+        # `ignore_layout` keeps this obj out of the page grid so it does NOT claim
+        # the (1,1) cell the flip clock needs; it renders full-screen via TOP_LEFT.
+        - obj:
+            id: overlay
+            ignore_layout: true
+            align: TOP_LEFT
+            x: 0
+            y: 0
+            width: 100%
+            height: 100%
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            scrollable: false
+            widgets:
+              # ══════════════ LEFT COLUMN ══════════════
+              # Temperature
+              - label:
+                  id: weather_temperature_today
+                  align: TOP_LEFT
+                  x: 30
+                  y: 18
+                  text_font: sg_84
+                  text_color: 0xE9EEF4
+                  text: "70°"
+
+              # AQI pill next to the temperature
+              - !include
+                  file: esphome-modular-lvgl-buttons/ui/weather/aqi_pill_widget.yaml
+                  vars:
+                    aqi_align: TOP_LEFT
+                    aqi_x: "200"
+                    aqi_y: "28"
+                    aqi_label_font: plex_13
+                    aqi_value_font: sg_25
+                    aqi_radius: "8"
+                    aqi_pad_h: "13"
+                    aqi_pad_top: "5"
+                    aqi_pad_bottom: "6"
+
+              # Forecast summary text (wraps)
+              - label:
+                  id: weather_summary_today
+                  align: TOP_LEFT
+                  x: 30
+                  y: 118
+                  width: 300
+                  long_mode: WRAP
+                  text_font: plex_14
+                  text_color: 0x8FA3B8
+                  text: "forecast"
+
+              # Weather condition icon (module supplies src via id)
+              - obj:
+                  align: TOP_LEFT
+                  x: 372
+                  y: 20
+                  width: 106
+                  height: 84
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  widgets:
+                    - image:
+                        id: weather_condition_icon
+                        src: unknown_84
+                        align: CENTER
+
+              # ── Stat chips (4): Humidity / Pressure / Visibility / Wind ──
+              - obj:
+                  align: TOP_LEFT
+                  x: 30
+                  y: 190
+                  width: 106
+                  height: 60
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_all: 10
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: CENTER
+                    flex_align_cross: START
+                    pad_row: 2
+                  widgets:
+                    - label: { text_font: plex_10, text_color: 0x7C90A5, text: "HUMIDITY" }
+                    - label: { id: weather_humidity_today, text_font: sg_20, text_color: 0xE9EEF4, text: "--%" }
+              - obj:
+                  align: TOP_LEFT
+                  x: 146
+                  y: 190
+                  width: 106
+                  height: 60
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_all: 10
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: CENTER
+                    flex_align_cross: START
+                    pad_row: 2
+                  widgets:
+                    - label: { text_font: plex_10, text_color: 0x7C90A5, text: "PRESSURE" }
+                    - label: { id: weather_pressure_today, text_font: sg_20, text_color: 0xE9EEF4, text: "-- hPa" }
+              - obj:
+                  align: TOP_LEFT
+                  x: 262
+                  y: 190
+                  width: 106
+                  height: 60
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_all: 10
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: CENTER
+                    flex_align_cross: START
+                    pad_row: 2
+                  widgets:
+                    - label: { text_font: plex_10, text_color: 0x7C90A5, text: "VISIBILITY" }
+                    - label: { id: weather_visibility_today, text_font: sg_20, text_color: 0xE9EEF4, text: "-- mi" }
+              - obj:
+                  align: TOP_LEFT
+                  x: 378
+                  y: 190
+                  width: 106
+                  height: 60
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_all: 10
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: CENTER
+                    flex_align_cross: START
+                    pad_row: 2
+                  widgets:
+                    - label: { text_font: plex_10, text_color: 0x7C90A5, text: "WIND" }
+                    - obj:
+                        width: SIZE_CONTENT
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        layout:
+                          type: flex
+                          flex_flow: ROW
+                          flex_align_main: START
+                          flex_align_cross: END
+                          pad_column: 4
+                        widgets:
+                          - label: { id: weather_wind_speed_today, text_font: sg_20, text_color: 0xE9EEF4, text: "--mph" }
+                          - label: { id: weather_wind_dir_today, text_font: plex_10, text_color: 0x7C90A5, text: "S" }
+
+              # ── Tide graph ──
+              - label:
+                  align: TOP_LEFT
+                  x: 30
+                  y: 262
+                  text_font: plex_11
+                  text_color: 0x7C90A5
+                  text: "TIDE · NEXT 36 HOURS"
+              - canvas:
+                  id: tide_canvas
+                  align: TOP_LEFT
+                  x: 58
+                  y: 282
+                  width: 426
+                  height: 132
+              # Y-axis labels (ft) aligned to the 5 / 2.5 / 0 gridlines
+              # Y-axis labels 1..5 ft, centered on their gridlines (scale -1..5)
+              - label: { id: ylbl_5, align: TOP_LEFT, x: 30, y: 280, text_font: plex_13, text_color: 0x7C90A5, text: "5" }
+              - label: { id: ylbl_4, align: TOP_LEFT, x: 30, y: 300, text_font: plex_13, text_color: 0x7C90A5, text: "4" }
+              - label: { id: ylbl_3, align: TOP_LEFT, x: 30, y: 319, text_font: plex_13, text_color: 0x7C90A5, text: "3" }
+              - label: { id: ylbl_2, align: TOP_LEFT, x: 30, y: 339, text_font: plex_13, text_color: 0x7C90A5, text: "2" }
+              - label: { id: ylbl_1, align: TOP_LEFT, x: 30, y: 359, text_font: plex_13, text_color: 0x7C90A5, text: "1" }
+              # NOW label — repositioned onto the accent line each redraw
+              # high/low marker time-label pool
+              - label: { id: sg_marklbl0, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              - label: { id: sg_marklbl1, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              - label: { id: sg_marklbl2, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              - label: { id: sg_marklbl3, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              - label: { id: sg_marklbl4, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              - label: { id: sg_marklbl5, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              - label: { id: sg_marklbl6, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              - label: { id: sg_marklbl7, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
+              # x-axis hour-label pool (every 6 h)
+              - label: { id: xlbl0, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+              - label: { id: xlbl1, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+              - label: { id: xlbl2, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+              - label: { id: xlbl3, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+              - label: { id: xlbl4, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+              - label: { id: xlbl5, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+              - label: { id: xlbl6, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+              - label: { id: xlbl7, align: TOP_LEFT, x: 0, y: 418, text_font: plex_13, text_color: 0x7C90A5, hidden: true, text: "" }
+
+              # ── 4-day forecast ──
+              - label:
+                  align: TOP_LEFT
+                  x: 30
+                  y: 446
+                  text_font: plex_11
+                  text_color: 0x7C90A5
+                  text: "4-DAY FORECAST"
+              - obj:
+                  align: TOP_LEFT
+                  x: 30
+                  y: 460
+                  width: 106
+                  height: 116
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_top: 8
+                  pad_bottom: 8
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: SPACE_EVENLY
+                    flex_align_cross: CENTER
+                    pad_row: 2
+                  widgets:
+                    - label: { id: forecast_day_0, text_font: plex_13, text_color: 0xAEBFD0, text: "---" }
+                    - obj:
+                        width: 44
+                        height: 40
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        widgets:
+                          - image: { id: forecast_condition_icon_0, src: unknown_40, align: CENTER }
+                    - obj:
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: END, pad_column: 5 }
+                        widgets:
+                          - label: { id: forecast_temperature_hi_0, text_font: sg_20, text_color: 0xE9EEF4, text: "--°" }
+                          - label: { id: forecast_temperature_lo_0, text_font: sg_14, text_color: 0x5FD4F4, text: "--°" }
+              - obj:
+                  align: TOP_LEFT
+                  x: 146
+                  y: 460
+                  width: 106
+                  height: 116
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_top: 8
+                  pad_bottom: 8
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: SPACE_EVENLY
+                    flex_align_cross: CENTER
+                    pad_row: 2
+                  widgets:
+                    - label: { id: forecast_day_1, text_font: plex_13, text_color: 0xAEBFD0, text: "---" }
+                    - obj:
+                        width: 44
+                        height: 40
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        widgets:
+                          - image: { id: forecast_condition_icon_1, src: unknown_40, align: CENTER }
+                    - obj:
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: END, pad_column: 5 }
+                        widgets:
+                          - label: { id: forecast_temperature_hi_1, text_font: sg_20, text_color: 0xE9EEF4, text: "--°" }
+                          - label: { id: forecast_temperature_lo_1, text_font: sg_14, text_color: 0x5FD4F4, text: "--°" }
+              - obj:
+                  align: TOP_LEFT
+                  x: 262
+                  y: 460
+                  width: 106
+                  height: 116
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_top: 8
+                  pad_bottom: 8
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: SPACE_EVENLY
+                    flex_align_cross: CENTER
+                    pad_row: 2
+                  widgets:
+                    - label: { id: forecast_day_2, text_font: plex_13, text_color: 0xAEBFD0, text: "---" }
+                    - obj:
+                        width: 44
+                        height: 40
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        widgets:
+                          - image: { id: forecast_condition_icon_2, src: unknown_40, align: CENTER }
+                    - obj:
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: END, pad_column: 5 }
+                        widgets:
+                          - label: { id: forecast_temperature_hi_2, text_font: sg_20, text_color: 0xE9EEF4, text: "--°" }
+                          - label: { id: forecast_temperature_lo_2, text_font: sg_14, text_color: 0x5FD4F4, text: "--°" }
+              - obj:
+                  align: TOP_LEFT
+                  x: 378
+                  y: 460
+                  width: 106
+                  height: 116
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  radius: 14
+                  pad_top: 8
+                  pad_bottom: 8
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    flex_align_main: SPACE_EVENLY
+                    flex_align_cross: CENTER
+                    pad_row: 2
+                  widgets:
+                    - label: { id: forecast_day_3, text_font: plex_13, text_color: 0xAEBFD0, text: "---" }
+                    - obj:
+                        width: 44
+                        height: 40
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        widgets:
+                          - image: { id: forecast_condition_icon_3, src: unknown_40, align: CENTER }
+                    - obj:
+                        width: 100%
+                        height: SIZE_CONTENT
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: END, pad_column: 5 }
+                        widgets:
+                          - label: { id: forecast_temperature_hi_3, text_font: sg_20, text_color: 0xE9EEF4, text: "--°" }
+                          - label: { id: forecast_temperature_lo_3, text_font: sg_14, text_color: 0x5FD4F4, text: "--°" }
+
+              # ══════════════ RIGHT COLUMN ══════════════
+              # ── Moon widget ──
+              # Full-moon image + a transparent canvas overlay. redraw_moon paints the
+              # true lunar terminator (a half-ellipse) onto moon_canvas, shading the
+              # unlit fraction — see the phase geometry in the redraw_moon script.
+              - image:
+                  id: moon_img
+                  align: TOP_LEFT
+                  x: 524
+                  y: 20
+                  src: moon_full_img
+              - canvas:
+                  id: moon_canvas
+                  align: TOP_LEFT
+                  x: 524
+                  y: 20
+                  width: 74
+                  height: 74
+                  transparent: true
+              - label: { id: moon_phase_name, align: TOP_LEFT, x: 608, y: 26, text_font: plex_16, text_color: 0xE9EEF4, text: "Waxing Gibbous" }
+              - label: { id: moon_next_full, align: TOP_LEFT, x: 608, y: 50, text_font: plex_13, text_color: 0x7C90A5, text: "Full moon · Aug 3" }
+              - label: { id: moon_next_new,  align: TOP_LEFT, x: 608, y: 68, text_font: plex_13, text_color: 0x7C90A5, text: "New moon · Jul 24" }
+
+              # ── Segmented tide meter ──
+              # Top (high) label: big number + small "ft" unit, centered on the track.
+              - obj:
+                  align: TOP_LEFT
+                  x: 520
+                  y: 150
+                  width: 120
+                  height: SIZE_CONTENT
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: END, pad_column: 3 }
+                  widgets:
+                    - label: { id: meter_top_ft, text_font: sg_27, text_color: 0x8FA3B8, text: "4.6" }
+                    - label: { text_font: sg_14, text_color: 0x7C90A5, text: "ft" }
+              - obj:
+                  id: meter_track
+                  align: TOP_LEFT
+                  x: 570
+                  y: 186
+                  width: 20
+                  height: 338
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    pad_row: 4
+                  widgets:
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0xB0D8F2, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x86CCEC, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x62C0E6, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x46B4DF, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x3BA7D4, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x3D98C1, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x3D8AAF, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x3C7C9D, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x3A6F8C, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x37627B, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x33566B, bg_opa: COVER, border_width: 0, pad_all: 0 }
+                    - obj: { width: 20, flex_grow: 1, radius: 4, bg_color: 0x2E4A5C, bg_opa: COVER, border_width: 0, pad_all: 0 }
+              - image:
+                  id: meter_pointer
+                  align: TOP_LEFT
+                  x: 554
+                  y: 367
+                  src: meter_pointer_img
+              - obj:
+                  id: meter_readout_box
+                  align: TOP_LEFT
+                  x: 438
+                  y: 360
+                  width: 112
+                  height: 34
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout:
+                    type: flex
+                    flex_flow: ROW
+                    flex_align_main: END
+                    flex_align_cross: END
+                    pad_column: 3
+                  widgets:
+                    - label: { id: meter_readout, text_font: sg_27, text_color: 0xE9EEF4, text: "1.9" }
+                    - label: { text_font: sg_14, text_color: 0x7C90A5, text: "ft" }
+              # Bottom (low) label: big number + small "ft" unit, centered on the track.
+              - obj:
+                  align: TOP_LEFT
+                  x: 520
+                  y: 530
+                  width: 120
+                  height: SIZE_CONTENT
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: END, pad_column: 3 }
+                  widgets:
+                    - label: { id: meter_bottom_ft, text_font: sg_27, text_color: 0x8FA3B8, text: "0.3" }
+                    - label: { text_font: sg_14, text_color: 0x7C90A5, text: "ft" }
+              - label:
+                  id: meter_caption
+                  align: TOP_LEFT
+                  x: 520
+                  y: 570
+                  width: 120
+                  text_align: CENTER
+                  text_font: plex_10
+                  text_color: 0x7C90A5
+                  text: "TIDE LEVEL"
+
+              # ── Tide dial ──
+              - canvas:
+                  id: dial_canvas
+                  align: TOP_LEFT
+                  x: 612
+                  y: 166
+                  width: 388
+                  height: 388
+              # Wrapper so align:CENTER numerals/center-labels resolve to the DIAL box center.
+              - obj:
+                  align: TOP_LEFT
+                  x: 612
+                  y: 166
+                  width: 388
+                  height: 388
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  widgets:
+                    # 10 numerals (skip 12 & 6 o'clock). Both sides count DOWN toward the
+                    # next tide: right side (falling) = hours to LOW, left side (rising) =
+                    # hours to HIGH.
+                    - label: { id: dial_num_1,  align: CENTER, x: 64,   y: -111, text_font: sg_19, text_color: 0x8FA3B8, text: "5" }
+                    - label: { id: dial_num_2,  align: CENTER, x: 111,  y: -64,  text_font: sg_19, text_color: 0x8FA3B8, text: "4" }
+                    - label: { id: dial_num_3,  align: CENTER, x: 128,  y: 0,    text_font: sg_19, text_color: 0x8FA3B8, text: "3" }
+                    - label: { id: dial_num_4,  align: CENTER, x: 111,  y: 64,   text_font: sg_19, text_color: 0x8FA3B8, text: "2" }
+                    - label: { id: dial_num_5,  align: CENTER, x: 64,   y: 111,  text_font: sg_19, text_color: 0x8FA3B8, text: "1" }
+                    - label: { id: dial_num_7,  align: CENTER, x: -64,  y: 111,  text_font: sg_19, text_color: 0x8FA3B8, text: "5" }
+                    - label: { id: dial_num_8,  align: CENTER, x: -111, y: 64,   text_font: sg_19, text_color: 0x8FA3B8, text: "4" }
+                    - label: { id: dial_num_9,  align: CENTER, x: -128, y: 0,    text_font: sg_19, text_color: 0x8FA3B8, text: "3" }
+                    - label: { id: dial_num_10, align: CENTER, x: -111, y: -64,  text_font: sg_19, text_color: 0x8FA3B8, text: "2" }
+                    - label: { id: dial_num_11, align: CENTER, x: -64,  y: -111, text_font: sg_19, text_color: 0x8FA3B8, text: "1" }
+                    # Boat markers at 12 (HIGH) and 6 (LOW) o'clock, replacing the
+                    # numberless tick lines there.
+                    - image: { src: boat_high_img, align: CENTER, x: 0, y: -142 }
+                    - image: { src: boat_low_img,  align: CENTER, x: 0, y: 142 }
+                    # Center stacked labels
+                    - label: { align: CENTER, x: 0, y: -43, text_font: plex_11, text_color: 0x7C90A5, text: "HIGH TIDE" }
+                    - label: { id: high_tide_label, align: CENTER, x: 0, y: -16, text_font: sg_25, text_color: 0xE9EEF4, text: "--:-- --" }
+                    - label: { id: low_tide_label,  align: CENTER, x: 0, y: 41,  text_font: sg_25, text_color: 0xE9EEF4, text: "--:-- --" }
+                    - label: { align: CENTER, x: 0, y: 66, text_font: plex_11, text_color: 0x7C90A5, text: "LOW TIDE" }
+              # Transparent meter carrying the teardrop needle. Its image indicator
+              # (id tide_level) is rotated automatically by local_tide_update.yaml
+              # (lvgl.indicator.update: id: tide_level, value: tide_percentage) — no
+              # lambda needed. The needle SVG points UP unrotated, so rotation:0 puts
+              # value 0 (HIGH) at 12 o'clock and value increases clockwise to LOW (50)
+              # at 6 o'clock.
+              - meter:
+                  align: TOP_LEFT
+                  x: 612
+                  y: 166
+                  width: 388
+                  height: 388
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  indicator:
+                    opa: TRANSP
+                  scales:
+                    - range_from: 0
+                      range_to: 100
+                      angle_range: 360
+                      rotation: 0
+                      indicators:
+                        - image:
+                            id: tide_level
+                            src: tide_dial_needle_img
+                            pivot_x: 194
+                            pivot_y: 194
+                            value: 0
+              # Rising/Falling label — centered under the dial (dial box x612..1000),
+              # baseline aligned with the meter's TIDE LEVEL caption.
+              - label:
+                  id: tide_state_label
+                  align: TOP_LEFT
+                  x: 612
+                  y: 570
+                  width: 388
+                  text_align: CENTER
+                  text_font: plex_11
+                  text_color: 0x5FD4F4
+                  text: "TIDE RISING"
+
+              # ── high/low height labels (module-driven; hidden — the meter top/bottom
+              #    labels convey these values in the design; these only satisfy the
+              #    local_tide_update.yaml binding contract) ──
+              - label: { id: high_tide_height, hidden: true, align: TOP_LEFT, x: 596, y: 84, text_font: plex_11, text_color: 0x7C90A5, text: "0.0 ft" }
+              - label: { id: low_tide_height,  hidden: true, align: TOP_LEFT, x: 596, y: 100, text_font: plex_11, text_color: 0x7C90A5, text: "0.0 ft" }
