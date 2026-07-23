@@ -85,7 +85,6 @@ display:
     invert_colors: true
     update_interval: never
     auto_clear_enabled: false
-    byte_order: little_endian
     dimensions:
       width: 800
       height: 480

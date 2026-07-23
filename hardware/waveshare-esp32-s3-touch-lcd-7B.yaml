@@ -109,7 +109,6 @@ display:
     update_interval: never
     auto_clear_enabled: false
     color_order: RGB
-    byte_order: little_endian
     pclk_frequency: 30MHZ
     dimensions:
       width: 1024

@@ -118,8 +118,6 @@ touchscreen:
 # Migrated from the deprecated rpi_dpi_rgb component to mipi_rgb.
 # Notes:
 #   - model: RPI selects the generic raw-RGB driver (no SPI controller).
-#   - byte_order: little_endian is required - mipi_rgb defaults to big,
-#     but rpi_dpi_rgb was little, so omitting this gives wrong colors.
 #   - pclk_inverted: true matches the original rpi_dpi_rgb config and
 #     also happens to be the mipi_rgb default.
 #   - The hsync/vsync porch values are panel-specific and carried over
@@ -133,7 +131,6 @@ display:
     invert_colors: true
     update_interval: never
     auto_clear_enabled: false  # takes 2.8 seconds to clear the display
-    byte_order: little_endian
     dimensions:
       width: 800
       height: 480
