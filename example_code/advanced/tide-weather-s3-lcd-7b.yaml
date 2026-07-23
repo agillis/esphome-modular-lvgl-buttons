@@ -135,6 +135,43 @@ script:
       - lambda: |-
           // No operation
 
+  # ── Diagnostics page: fill the labels from sensor / system state ────────
+  # The full sensor list lives in the built-in web UI's Diagnostic section;
+  # this page mirrors the key ones on-device. Runs on page load + every 2s
+  # while the page is open (see the interval below).
+  - id: diag_refresh
+    then:
+      - lambda: |-
+          char b[64];
+          lv_label_set_text(id(diag_name),  id(device_name).state.c_str());
+          lv_label_set_text(id(diag_fw),    id(esphome_version).state.c_str());
+          lv_label_set_text(id(diag_built), id(build_timestamp).state.c_str());
+          lv_label_set_text(id(diag_ssid),  id(connected_ssid).state.c_str());
+          lv_label_set_text(id(diag_ip),    id(ip_address).state.c_str());
+          lv_label_set_text(id(diag_mac),   id(mac_address).state.c_str());
+          lv_label_set_text(id(diag_restart),
+                            id(device_last_restart).state.empty() ? "\xE2\x80\x94"
+                                                                  : id(device_last_restart).state.c_str());
+          if (id(wifi_signal_db_percent).has_state()) {
+            snprintf(b, sizeof(b), "%.0f%%  (%.0f dBm)",
+                     id(wifi_signal_db_percent).state, id(wifi_signal_db).state);
+            lv_label_set_text(id(diag_wifi), b);
+          }
+          if (id(cpu_temperature).has_state()) {
+            snprintf(b, sizeof(b), "%.1f \xC2\xB0""F", id(cpu_temperature).state);
+            lv_label_set_text(id(diag_cpu), b);
+          }
+          uint32_t up = millis() / 1000;
+          snprintf(b, sizeof(b), "%ud %02u:%02u:%02u",
+                   up / 86400, (up % 86400) / 3600, (up % 3600) / 60, up % 60);
+          lv_label_set_text(id(diag_uptime), b);
+          snprintf(b, sizeof(b), "%u KB free",
+                   (unsigned) (heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
+          lv_label_set_text(id(diag_heap), b);
+          snprintf(b, sizeof(b), "%u KB free",
+                   (unsigned) (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
+          lv_label_set_text(id(diag_psram), b);
+
   # ── Tide graph (canvas) ────────────────────────────────────────────────
   - id: redraw_tide_graph
     then:
@@ -640,6 +677,11 @@ interval:
   - interval: 300s
     then:
       - script.execute: redraw_moon
+  # Keep the diagnostics labels current (cheap: ~14 label writes + heap query).
+  # Off-screen writes are near-free, so no need to gate on the active page.
+  - interval: 2s
+    then:
+      - script.execute: diag_refresh
 
 # ── Dashboard-local images (needle for the dial meter, meter pointer) ───────
 image:
@@ -837,6 +879,13 @@ font:
     size: 10
     bpp: 4
 
+  # MDI icons for the diagnostics gear + close  (cog U+F0493, close U+F0156)
+  - file: 'https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf'
+    id: mdi_diag
+    size: 30
+    bpp: 4
+    glyphs: ["\U000F0493", "\U000F0156"]
+
 # ═══════════════════════════════════════════════════════════════════════════
 # LVGL — dark 1024x600 dashboard
 # ═══════════════════════════════════════════════════════════════════════════
@@ -852,7 +901,7 @@ lvgl:
         # Clock cell = column 1 / row 1. The trailing FR track (16 px) matches the
         # 16 px top track, so the flip clock is equidistant from the top & right edges.
         grid_columns: [776, 232, FR(1)]
-        grid_rows: [16, 122, FR(1)]
+        grid_rows: [8, 122, FR(1)]
       widgets:
         # ── Transparent full-span overlay: ALL content except the flip clock ──
         # `ignore_layout` keeps this obj out of the page grid so it does NOT claim
@@ -877,7 +926,7 @@ lvgl:
                   id: weather_temperature_today
                   align: TOP_LEFT
                   x: 30
-                  y: 18
+                  y: 10
                   text_font: sg_84
                   text_color: 0xE9EEF4
                   text: "70°"
@@ -888,7 +937,7 @@ lvgl:
                   vars:
                     aqi_align: TOP_LEFT
                     aqi_x: "200"
-                    aqi_y: "28"
+                    aqi_y: "20"
                     aqi_label_font: plex_13
                     aqi_value_font: sg_25
                     aqi_radius: "8"
@@ -901,8 +950,8 @@ lvgl:
                   id: weather_summary_today
                   align: TOP_LEFT
                   x: 30
-                  y: 118
-                  width: 300
+                  y: 108
+                  width: 330
                   long_mode: WRAP
                   text_font: plex_14
                   text_color: 0x8FA3B8
@@ -912,7 +961,7 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 372
-                  y: 20
+                  y: 12
                   width: 106
                   height: 84
                   bg_opa: TRANSP
@@ -930,9 +979,9 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 30
-                  y: 190
+                  y: 180
                   width: 106
-                  height: 60
+                  height: 68
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -953,9 +1002,9 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 146
-                  y: 190
+                  y: 180
                   width: 106
-                  height: 60
+                  height: 68
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -976,9 +1025,9 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 262
-                  y: 190
+                  y: 180
                   width: 106
-                  height: 60
+                  height: 68
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -999,9 +1048,9 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 378
-                  y: 190
+                  y: 180
                   width: 106
-                  height: 60
+                  height: 68
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -1082,16 +1131,16 @@ lvgl:
               - label:
                   align: TOP_LEFT
                   x: 30
-                  y: 446
+                  y: 434
                   text_font: plex_11
                   text_color: 0x7C90A5
                   text: "4-DAY FORECAST"
               - obj:
                   align: TOP_LEFT
                   x: 30
-                  y: 460
+                  y: 448
                   width: 106
-                  height: 116
+                  height: 140
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -1134,9 +1183,9 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 146
-                  y: 460
+                  y: 448
                   width: 106
-                  height: 116
+                  height: 140
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -1179,9 +1228,9 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 262
-                  y: 460
+                  y: 448
                   width: 106
-                  height: 116
+                  height: 140
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -1224,9 +1273,9 @@ lvgl:
               - obj:
                   align: TOP_LEFT
                   x: 378
-                  y: 460
+                  y: 448
                   width: 106
-                  height: 116
+                  height: 140
                   bg_color: 0x141C28
                   bg_opa: COVER
                   border_color: 0x2A3644
@@ -1276,19 +1325,19 @@ lvgl:
                   id: moon_img
                   align: TOP_LEFT
                   x: 524
-                  y: 20
+                  y: 12
                   src: moon_full_img
               - canvas:
                   id: moon_canvas
                   align: TOP_LEFT
                   x: 524
-                  y: 20
+                  y: 12
                   width: 74
                   height: 74
                   transparent: true
-              - label: { id: moon_phase_name, align: TOP_LEFT, x: 608, y: 26, text_font: plex_16, text_color: 0xE9EEF4, text: "Waxing Gibbous" }
-              - label: { id: moon_next_full, align: TOP_LEFT, x: 608, y: 50, text_font: plex_13, text_color: 0x7C90A5, text: "Full moon · Aug 3" }
-              - label: { id: moon_next_new,  align: TOP_LEFT, x: 608, y: 68, text_font: plex_13, text_color: 0x7C90A5, text: "New moon · Jul 24" }
+              - label: { id: moon_phase_name, align: TOP_LEFT, x: 608, y: 18, text_font: plex_16, text_color: 0xE9EEF4, text: "Waxing Gibbous" }
+              - label: { id: moon_next_full, align: TOP_LEFT, x: 608, y: 42, text_font: plex_13, text_color: 0x7C90A5, text: "Full moon · Aug 3" }
+              - label: { id: moon_next_new,  align: TOP_LEFT, x: 608, y: 60, text_font: plex_13, text_color: 0x7C90A5, text: "New moon · Jul 24" }
 
               # ── Segmented tide meter ──
               # Top (high) label: big number + small "ft" unit, centered on the track.
@@ -1383,7 +1432,7 @@ lvgl:
                   id: meter_caption
                   align: TOP_LEFT
                   x: 520
-                  y: 570
+                  y: 585
                   width: 120
                   text_align: CENTER
                   text_font: plex_10
@@ -1398,6 +1447,7 @@ lvgl:
                   y: 166
                   width: 388
                   height: 388
+                  transparent: true
               # Wrapper so align:CENTER numerals/center-labels resolve to the DIAL box center.
               - obj:
                   align: TOP_LEFT
@@ -1469,7 +1519,7 @@ lvgl:
                   id: tide_state_label
                   align: TOP_LEFT
                   x: 612
-                  y: 570
+                  y: 585
                   width: 388
                   text_align: CENTER
                   text_font: plex_11
@@ -1481,3 +1531,106 @@ lvgl:
               #    local_tide_update.yaml binding contract) ──
               - label: { id: high_tide_height, hidden: true, align: TOP_LEFT, x: 596, y: 84, text_font: plex_11, text_color: 0x7C90A5, text: "0.0 ft" }
               - label: { id: low_tide_height,  hidden: true, align: TOP_LEFT, x: 596, y: 100, text_font: plex_11, text_color: 0x7C90A5, text: "0.0 ft" }
+
+              # ── Settings gear → diagnostics page (bottom-right corner) ──
+              - button:
+                  id: diag_gear_btn
+                  align: BOTTOM_RIGHT
+                  x: -12
+                  y: -12
+                  width: 42
+                  height: 42
+                  radius: 21
+                  bg_color: 0x141C28
+                  bg_opa: COVER
+                  border_color: 0x2A3644
+                  border_width: 1
+                  shadow_width: 0
+                  pad_all: 0
+                  on_click:
+                    - lvgl.page.show: diag_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: mdi_diag
+                        text_color: 0x8FA3B8
+                        text: "\U000F0493"
+
+    # ══════════════════════════════════════════════════════════════════════
+    # Diagnostics page — reached via the gear; X (top-right) returns to main.
+    # Mirrors the key entries from the web UI's Diagnostic section on-device.
+    # ══════════════════════════════════════════════════════════════════════
+    - id: diag_page
+      bg_color: 0x0B1420
+      scrollbar_mode: "OFF"
+      on_load:
+        - script.execute: diag_refresh
+      widgets:
+        - label:
+            align: TOP_LEFT
+            x: 40
+            y: 30
+            text_font: sg_25
+            text_color: 0xE9EEF4
+            text: "Diagnostics"
+
+        # Close (X) → back to the main page
+        - button:
+            id: diag_close_btn
+            align: TOP_RIGHT
+            x: -16
+            y: 16
+            width: 46
+            height: 46
+            radius: 23
+            bg_color: 0x141C28
+            bg_opa: COVER
+            border_color: 0x2A3644
+            border_width: 1
+            shadow_width: 0
+            pad_all: 0
+            on_click:
+              - lvgl.page.show: main_page
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: mdi_diag
+                  text_color: 0xE9EEF4
+                  text: "\U000F0156"
+
+        # ── Left column ──
+        - label: { align: TOP_LEFT, x: 40, y: 96,  text_font: plex_11, text_color: 0x7C90A5, text: "DEVICE" }
+        - label: { id: diag_name,   align: TOP_LEFT, x: 40, y: 114, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 40, y: 156, text_font: plex_11, text_color: 0x7C90A5, text: "FIRMWARE" }
+        - label: { id: diag_fw,     align: TOP_LEFT, x: 40, y: 174, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 40, y: 216, text_font: plex_11, text_color: 0x7C90A5, text: "BUILD" }
+        - label: { id: diag_built,  align: TOP_LEFT, x: 40, y: 234, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 40, y: 276, text_font: plex_11, text_color: 0x7C90A5, text: "UPTIME" }
+        - label: { id: diag_uptime, align: TOP_LEFT, x: 40, y: 294, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 40, y: 336, text_font: plex_11, text_color: 0x7C90A5, text: "FREE RAM (INTERNAL)" }
+        - label: { id: diag_heap,   align: TOP_LEFT, x: 40, y: 354, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 40, y: 396, text_font: plex_11, text_color: 0x7C90A5, text: "FREE PSRAM" }
+        - label: { id: diag_psram,  align: TOP_LEFT, x: 40, y: 414, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+
+        # ── Right column ──
+        - label: { align: TOP_LEFT, x: 540, y: 96,  text_font: plex_11, text_color: 0x7C90A5, text: "WIFI SSID" }
+        - label: { id: diag_ssid,    align: TOP_LEFT, x: 540, y: 114, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 540, y: 156, text_font: plex_11, text_color: 0x7C90A5, text: "IP ADDRESS" }
+        - label: { id: diag_ip,      align: TOP_LEFT, x: 540, y: 174, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 540, y: 216, text_font: plex_11, text_color: 0x7C90A5, text: "MAC ADDRESS" }
+        - label: { id: diag_mac,     align: TOP_LEFT, x: 540, y: 234, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 540, y: 276, text_font: plex_11, text_color: 0x7C90A5, text: "WIFI STRENGTH" }
+        - label: { id: diag_wifi,    align: TOP_LEFT, x: 540, y: 294, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 540, y: 336, text_font: plex_11, text_color: 0x7C90A5, text: "CPU TEMPERATURE" }
+        - label: { id: diag_cpu,     align: TOP_LEFT, x: 540, y: 354, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+        - label: { align: TOP_LEFT, x: 540, y: 396, text_font: plex_11, text_color: 0x7C90A5, text: "LAST RESTART" }
+        - label: { id: diag_restart, align: TOP_LEFT, x: 540, y: 414, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
+
+        # Footer hint
+        - label:
+            align: BOTTOM_LEFT
+            x: 40
+            y: -22
+            text_font: plex_13
+            text_color: 0x5FD4F4
+            text: "Full sensor list: built-in web UI \xC2\xB7 Diagnostic section"
