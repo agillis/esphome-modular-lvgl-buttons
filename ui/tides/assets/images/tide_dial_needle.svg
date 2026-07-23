@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="400" height="400"
+     viewBox="0 0 400 400"
+     version="1.1">
+  <!--
+    Rim-pointer tide needle for the 388x388 tide dial.
+    Dial center is (200,200) in this viewBox; when resized to 388x388 that maps to
+    pixel (194,194) = the meter image pivot (pivot_x/pivot_y: 194).
+    The teardrop points UP (12 o'clock) unrotated, so with the meter scale rotation:0
+    the needle is at 12 (HIGH) for tide_level value 0 and sweeps clockwise to 6
+    o'clock (LOW) at value 50. Tip near r122, round end near r72-r82. Accent 0xE8483F.
+  -->
+  <path d="M197 78 L203 78 L204.5 118 a10 10 0 1 1 -9 0 Z" fill="#E8483F" />
+</svg>
