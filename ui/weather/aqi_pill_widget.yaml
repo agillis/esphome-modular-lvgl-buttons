@@ -12,15 +12,15 @@ obj:
   y: ${aqi_y | default("0")}
   width: SIZE_CONTENT
   height: SIZE_CONTENT
-  radius: 14
+  radius: ${aqi_radius | default("14")}
   bg_color: 0x9E9E9E
   bg_opa: COVER
   border_width: 0
   shadow_opa: TRANSP
-  pad_left: 6
-  pad_right: 6
-  pad_top: 2
-  pad_bottom: 3
+  pad_left: ${aqi_pad_h | default("6")}
+  pad_right: ${aqi_pad_h | default("6")}
+  pad_top: ${aqi_pad_top | default("2")}
+  pad_bottom: ${aqi_pad_bottom | default("3")}
   layout:
     type: flex
     flex_flow: COLUMN

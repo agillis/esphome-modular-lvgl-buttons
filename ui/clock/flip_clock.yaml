@@ -1,67 +1,110 @@
 ---
-# Flip Clock Widget - Gluqlo Style
+# Flip Clock Widget - Modern Tide Dashboard Style
 #
 # vars:
 #    uid:
-#    page_id:
+#    page_id:      parent page id (default "main_page")
 #    row:
 #    column:
 #    row_span:
 #    column_span:
 #    click_page:
-#    font_size:
-#    height:   inner clock height within the cell, e.g. "60%" or "200" (default "60%")
-#    style: "black" (default) or "white"
+#    font_size:    digit size in px (default 54)
+#    height:       inner clock height within the cell, e.g. "100%" or "200" (default "100%")
+#    style:        "black" (default) or "white"  (kept for var-contract compatibility)
+#    show_date:    true/false (default false) - render an uppercase date line below the cards
+#
+# Two split-gradient cards (hour + minute) with an aqua blinking colon between them.
+# "AM"/"PM" sits at the bottom-left of the hour card. An optional date line renders below.
+#
+# Label IDs updated by the "!extend time_update" script:
+#    flip_hour_label, flip_min_label, flip_am_label, flip_pm_label, flip_colon, flip_date
+#
+# NOTE: every font this module needs is declared locally below - it never depends on
+# fonts declared in the host dashboard.
 
 font:
-  - file: "esphome-modular-lvgl-buttons/assets/fonts/gluqlo.ttf"
-    id: gluqlo_font
-    size: ${font_size | default(80)}
-    bpp: 8
+  # Digits - Space Grotesk @600 at the requested digit size
+  - file: "gfonts://Space+Grotesk@600"
+    id: flip_sg_font
+    size: ${font_size | default(54)}
+    bpp: 4
     glyphs: "0123456789"
 
-  - file: "esphome-modular-lvgl-buttons/assets/fonts/gluqlo.ttf"
-    id: gluqlo_font_sm
-    size: 10
-    bpp: 8
+  # Aqua colon between the two cards (~34px)
+  - file: "gfonts://Space+Grotesk@600"
+    id: flip_colon_font
+    size: 34
+    bpp: 4
+    glyphs: ":"
+
+  # AM / PM indicator (small)
+  - file: "gfonts://Space+Grotesk@600"
+    id: flip_ampm_font
+    size: 11
+    bpp: 4
     glyphs: "AMP"
 
+  # Optional date line (IBM Plex Sans @500, uppercase)
+  - file: "gfonts://IBM+Plex+Sans@500"
+    id: flip_date_font
+    size: 12
+    bpp: 4
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789, "
+
+globals:
+  # Drives the blinking colon (toggled by the interval below)
+  - id: flip_colon_on
+    type: bool
+    restore_value: no
+    initial_value: "true"
+
 lvgl:
+  gradients:
+    - id: flip_card_gradient
+      direction: ver
+      stops:
+        - color: 0x1B2634
+          position: 0
+        - color: 0x141D29
+          position: 255
+
   style_definitions:
-    - id: flip_panel_style
-      bg_color: ${"gray200" if style | default("black") == "white" else "gray900"}
+    - id: flip_card_style
+      bg_grad: flip_card_gradient
+      bg_grad_dir: ver
       bg_opa: cover
-      radius: 8
-      border_width: 0
-      pad_left: 8
-      pad_right: 8
-      pad_top: 16
-      pad_bottom: 8
+      radius: 12
+      border_width: 1
+      border_color: 0x2A3644
+      pad_all: 0
       scrollbar_mode: "OFF"
 
     - id: flip_digit_style
-      text_font: gluqlo_font
-      text_color: ${"gray900" if style | default("black") == "white" else "gray400"}
+      text_font: flip_sg_font
+      text_color: 0xE9EEF4
       align: center
 
     - id: flip_outer_style
       bg_opa: TRANSP
 
-    - id: flip_divider_style
-      bg_color: $bg_color
-      bg_opa: cover
+    - id: flip_colon_style
+      text_font: flip_colon_font
+      text_color: 0x5FD4F4
 
     - id: flip_ampm_style
-      text_font: gluqlo_font_sm
-      text_color: ${"gray900" if style | default("black") == "white" else "gray400"}
+      text_font: flip_ampm_font
+      text_color: 0x7C90A5
+
+    - id: flip_date_style
+      text_font: flip_date_font
+      text_color: 0x7C90A5
 
   pages:
     - id: !extend ${page_id | default("main_page")}
       widgets:
         - obj:
             id: ${uid}
-            # outline_width: 1
-            # outline_color: red
             grid_cell_row_pos: ${row}
             grid_cell_column_pos: ${column}
             grid_cell_row_span: ${row_span | default(1)}
@@ -70,15 +113,16 @@ lvgl:
             grid_cell_y_align: stretch
             styles: flip_outer_style
             scrollbar_mode: "OFF"
+            scrollable: false
             pad_all: 0
             on_short_click:
               then:
                 lvgl.page.show: ${click_page | default("main_page")}
             widgets:
-              # Flex container for the two panels
+              # Column: [ clock row ] then optional [ date line ]
               - obj:
                   width: 100%
-                  height: ${height | default("60%")}
+                  height: ${height | default("100%")}
                   align: CENTER
                   bg_opa: TRANSP
                   pad_all: 2
@@ -86,62 +130,97 @@ lvgl:
                   scrollable: false
                   layout:
                     type: FLEX
-                    flex_flow: ROW
+                    flex_flow: COLUMN
                     flex_align_main: CENTER
                     flex_align_cross: CENTER
                     flex_align_track: CENTER
                   widgets:
-                    # ── Hour Panel ──
+                    # ── Clock row: hour card, colon, minute card ──
                     - obj:
-                        styles: flip_panel_style
+                        width: 100%
                         flex_grow: 1
+                        bg_opa: TRANSP
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
                         scrollable: false
+                        layout:
+                          type: FLEX
+                          flex_flow: ROW
+                          flex_align_main: CENTER
+                          flex_align_cross: CENTER
+                          flex_align_track: CENTER
+                          pad_column: 6
                         widgets:
-                          - label:
-                              id: flip_hour_label
-                              styles: flip_digit_style
-                              align: CENTER
-                              text: "12"
-                          - label:
-                              id: flip_am_label
-                              styles: flip_ampm_style
-                              align: TOP_LEFT
-                              pad_left: 0
-                              pad_top: 0
-                              x: -4
-                              y: -10
-                              text: "AM"
-                          - label:
-                              id: flip_pm_label
-                              styles: flip_ampm_style
-                              align: BOTTOM_LEFT
-                              pad_left: 0
-                              pad_bottom: 0
-                              x: -4
-                              y: 2
-                              text: "PM"
-                              hidden: true
+                          # ── Hour card ──
+                          - obj:
+                              styles: flip_card_style
+                              flex_grow: 1
+                              height: 100%
+                              scrollable: false
+                              widgets:
+                                - label:
+                                    id: flip_hour_label
+                                    styles: flip_digit_style
+                                    align: CENTER
+                                    text: "12"
+                                - label:
+                                    id: flip_am_label
+                                    styles: flip_ampm_style
+                                    align: BOTTOM_LEFT
+                                    x: 6
+                                    y: -6
+                                    text: "AM"
+                                - label:
+                                    id: flip_pm_label
+                                    styles: flip_ampm_style
+                                    align: BOTTOM_LEFT
+                                    x: 6
+                                    y: -6
+                                    text: "PM"
+                                    hidden: true
 
-                    # ── Minute Panel ──
-                    - obj:
-                        styles: flip_panel_style
-                        flex_grow: 1
-                        scrollable: false
-                        widgets:
+                          # ── Aqua blinking colon ──
                           - label:
-                              id: flip_min_label
-                              styles: flip_digit_style
-                              align: CENTER
-                              text: "00"
+                              id: flip_colon
+                              styles: flip_colon_style
+                              text: ":"
 
-              # Divider line - overlays across center of both panels
-              - obj:
-                  height: 2
-                  width: 100%
-                  align: CENTER
-                  styles: flip_divider_style
-                  pad_all: 0
-                  scrollable: false
+                          # ── Minute card ──
+                          - obj:
+                              styles: flip_card_style
+                              flex_grow: 1
+                              height: 100%
+                              scrollable: false
+                              widgets:
+                                - label:
+                                    id: flip_min_label
+                                    styles: flip_digit_style
+                                    align: CENTER
+                                    text: "00"
+
+                    # ── Optional date line ──
+                    - label:
+                        id: flip_date
+                        styles: flip_date_style
+                        text: ""
+                        hidden: ${"false" if show_date | default(false) else "true"}
+
+interval:
+  # Blink the colon (~2 s period: on 1 s, off 1 s)
+  - interval: 1s
+    then:
+      - lambda: 'id(flip_colon_on) = !id(flip_colon_on);'
+      - if:
+          condition:
+            lambda: 'return id(flip_colon_on);'
+          then:
+            - lvgl.widget.update:
+                id: flip_colon
+                text_opa: 100%
+          else:
+            - lvgl.widget.update:
+                id: flip_colon
+                text_opa: 0%
 
 script:
   - id: !extend time_update
@@ -167,3 +246,12 @@ script:
           else:
             - lvgl.widget.show: flip_am_label
             - lvgl.widget.hide: flip_pm_label
+      - lvgl.label.update:
+          id: flip_date
+          text: !lambda |-
+            auto t = id(system_time).now();
+            if (!t.is_valid()) return std::string("");
+            // e.g. "SATURDAY, JULY 18" — no leading zero on single-digit days
+            std::string s = t.strftime("%A, %B ") + std::to_string(t.day_of_month);
+            for (auto & c : s) c = toupper(c);
+            return s;

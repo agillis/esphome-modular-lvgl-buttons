@@ -108,9 +108,14 @@ script:
           format: "Fetching weather from Pirate Weather..."
       - http_request.get:
           capture_response: true
-          max_response_buffer_size: 16384
-          # version=2 adds air quality (currently.airQualityIndex) and other fields
-          url: "https://api.pirateweather.net/forecast/${pw_key}/${pw_lat},${pw_lon}?units=${pw_units}&version=2&exclude=minutely,hourly,alerts,flags"
+          # Including the hourly block (for hourly.summary) makes the response much
+          # larger, so pw_max_response must be raised too (see pw_exclude below).
+          max_response_buffer_size: ${pw_max_response | default("16384")}
+          # version=2 adds air quality (currently.airQualityIndex) and other fields.
+          # pw_exclude default drops hourly (small response); un-exclude it (and raise
+          # pw_max_response, e.g. 65536) to populate weather_summary_today from
+          # hourly.summary.
+          url: "https://api.pirateweather.net/forecast/${pw_key}/${pw_lat},${pw_lon}?units=${pw_units}&version=2&exclude=${pw_exclude | default('minutely,hourly,alerts,flags')}"
           on_response:
             then:
               - lambda: |-
@@ -136,7 +141,7 @@ script:
                     lv_label_set_text(id(weather_humidity_today), buf);
                     snprintf(buf, sizeof(buf), "%d hPa", (int) lroundf(cur["pressure"].as<float>()));
                     lv_label_set_text(id(weather_pressure_today), buf);
-                    snprintf(buf, sizeof(buf), "%dmph", (int) lroundf(cur["windSpeed"].as<float>()));
+                    snprintf(buf, sizeof(buf), "%d mph", (int) lroundf(cur["windSpeed"].as<float>()));
                     lv_label_set_text(id(weather_wind_speed_today), buf);
                     snprintf(buf, sizeof(buf), "%d mi", (int) lroundf(cur["visibility"].as<float>()));
                     lv_label_set_text(id(weather_visibility_today), buf);
@@ -146,7 +151,14 @@ script:
                       int b = (int) lroundf(cur["windBearing"].as<float>());
                       lv_label_set_text(id(weather_wind_dir_today), dirs[((b % 360 + 11) / 22) % 16]);
                     }
-                    lv_label_set_text(id(weather_summary_today), cur["summary"] | "");
+                    // Use the hourly forecast narrative ("Light rain starting in the
+                    // evening.") over the terse instantaneous currently.summary
+                    // ("Overcast"); fall back to the short one if hourly is absent.
+                    {
+                      const char *hs = root["hourly"]["summary"] | "";
+                      const char *cs = cur["summary"] | "";
+                      lv_label_set_text(id(weather_summary_today), hs[0] ? hs : cs);
+                    }
                     id(pw_current_icon) = cur["icon"] | "clear-day";
                     // Air quality (version=2). Missing on v1 -> stays -1.
                     id(pw_aqi) = cur["airQualityIndex"] | -1;

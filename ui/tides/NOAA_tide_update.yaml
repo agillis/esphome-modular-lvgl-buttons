@@ -520,6 +520,14 @@ script:
                           bool best_next_is_high = false;
                           bool found_next = false;
 
+                          // First upcoming HIGH and first upcoming LOW, tracked
+                          // independently so both displayed times are always in
+                          // the future (not the one that already passed).
+                          time_t best_next_high_epoch = 0;
+                          float  best_next_high_level = 0;
+                          time_t best_next_low_epoch = 0;
+                          float  best_next_low_level = 0;
+
                           for (JsonObject prediction : predictions) {
                             const char* t = prediction["t"];
                             const char* v = prediction["v"];
@@ -563,11 +571,28 @@ script:
                                 best_last_level = level;
                                 best_last_is_high = is_high;
                               }
-                            } else if (!found_next) {
-                              best_next_epoch = pred_epoch;
-                              best_next_level = level;
-                              best_next_is_high = is_high;
-                              found_next = true;
+                            } else {
+                              // First future tide overall — kept for the dial's
+                              // last->next interpolation.
+                              if (!found_next) {
+                                best_next_epoch = pred_epoch;
+                                best_next_level = level;
+                                best_next_is_high = is_high;
+                                found_next = true;
+                              }
+                              // First future high and first future low, for the
+                              // "next high" / "next low" time & level display.
+                              if (is_high) {
+                                if (best_next_high_epoch == 0) {
+                                  best_next_high_epoch = pred_epoch;
+                                  best_next_high_level = level;
+                                }
+                              } else {
+                                if (best_next_low_epoch == 0) {
+                                  best_next_low_epoch = pred_epoch;
+                                  best_next_low_level = level;
+                                }
+                              }
                             }
                           }
 
@@ -590,17 +615,21 @@ script:
                             return std::string(buf[0] == '0' ? buf + 1 : buf);
                           };
 
-                          // Publish to high/low sensors (on_value triggers LVGL updates)
-                          if (best_next_is_high) {
-                            id(high_tide_level).publish_state(best_next_level);
-                            id(low_tide_level).publish_state(best_last_level);
-                            id(high_tide_time_sensor).publish_state(fmt_time(best_next_epoch));
-                            id(low_tide_time_sensor).publish_state(fmt_time(best_last_epoch));
+                          // Publish the NEXT high and NEXT low independently, so
+                          // both times are always upcoming. Previously the tide
+                          // that wasn't the very next one showed its LAST (past)
+                          // occurrence. on_value triggers the LVGL updates.
+                          if (best_next_high_epoch != 0) {
+                            id(high_tide_level).publish_state(best_next_high_level);
+                            id(high_tide_time_sensor).publish_state(fmt_time(best_next_high_epoch));
                           } else {
-                            id(low_tide_level).publish_state(best_next_level);
-                            id(high_tide_level).publish_state(best_last_level);
-                            id(low_tide_time_sensor).publish_state(fmt_time(best_next_epoch));
-                            id(high_tide_time_sensor).publish_state(fmt_time(best_last_epoch));
+                            ESP_LOGW("noaa", "No upcoming HIGH tide in prediction window");
+                          }
+                          if (best_next_low_epoch != 0) {
+                            id(low_tide_level).publish_state(best_next_low_level);
+                            id(low_tide_time_sensor).publish_state(fmt_time(best_next_low_epoch));
+                          } else {
+                            ESP_LOGW("noaa", "No upcoming LOW tide in prediction window");
                           }
 
                           ESP_LOGI("noaa", "Last tide: %s at %ld (%.2f)",
