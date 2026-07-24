@@ -71,7 +71,12 @@ tide:
   time_id: system_time
   units: ${tide_units}
   update_interval: 60s
-  station_data: "${tide_station_data}"
+  # Supply exactly ONE of these from the device config:
+  #   tide_station_data: "TIDE1|…"   paste a pre-generated harmonic string, or
+  #   tide_station_id:   "8558690"   a NOAA id — harmonics are fetched + cached
+  #                                  at build time by the tide component.
+  station_data: "${tide_station_data | default('')}"
+  station_id: "${tide_station_id | default('')}"
 
 # Populate the UI immediately at boot. Each tide sensor only publishes on its
 # own update_interval (60s), so without this the gauge would sit blank for up

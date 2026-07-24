@@ -31,6 +31,12 @@ substitutions:
   label_off_color: "gray"
   button_text_color: "white"
 
+  # Device location — single source of truth (secrets.yaml). Used by the tide
+  # graph's day/night shading lambda; the weather module and backlight sun read
+  # the same !secret values directly.
+  device_lat: !secret latitude
+  device_lon: !secret longitude
+
   # Panel size (Waveshare S3-7B is a 1024x600 panel)
   screen_width: '1024'
   screen_height: '600'
@@ -240,9 +246,10 @@ script:
           // ── Day/night shading ──────────────────────────────────────────────
           // Lighten the columns where the sun is up (real sunrise/sunset for this
           // lat/lon via a low-precision solar-altitude formula), so the night hours
-          // read darker. LAT/LON = Warwick, RI — update if the location changes.
+          // read darker. LAT/LON come from secrets.yaml (${device_lat}/${device_lon})
+          // via substitution — same source the weather + backlight sun use.
           {
-            const double LAT = 41.70, LON = -71.42;
+            const double LAT = ${device_lat}, LON = ${device_lon};
             const double D2R = 3.14159265358979 / 180.0;
             for (int x = 0; x < W; x++) {
               time_t te = start + (time_t) ((long) x * step_s);
@@ -773,9 +780,11 @@ packages:
   tide_info: !include
     file: esphome-modular-lvgl-buttons/ui/tides/local_tide_update.yaml
     vars:
-      # East Greenwich, RI (8454578) harmonic constants. Offline — no API.
-      # Regenerate for another station: generator/generate_station.py --id <NOAA id>
-      tide_station_data: "TIDE1|U=m|Z0=0.6280|D=MLLW|MHW=1.2890|MLW=0.0520|M2:0.569:6.6|S2:0.126:32.5|N2:0.132:352.2|K1:0.062:157|M4:0.081:55.2|O1:0.047:204|M6:0.017:287.2|MK3:0.013:35.7|S4:0.007:40.3|MN4:0.033:8|NU2:0.024:349|MU2:0.026:354|2N2:0.018:331.1|OO1:0.003:216.5|LAM2:0.002:330.2|S1:0.018:188.3|M1:0.002:155.6|J1:0.009:197|SA:0.06:131.8|RHO:0.006:219.9|Q1:0.021:171.5|T2:0.013:36.6|R2:0.01:246.5|2Q1:0.008:266.9|P1:0.017:155|2SM2:0.002:52.6|M3:0.013:74|L2:0.008:317.9|2MK3:0.01:15.3|K2:0.032:18.1|M8:0.001:72.6|MS4:0.018:136.2"
+      # Indian River Inlet (CG Station), DE. Just the NOAA station id — the tide
+      # component fetches the harmonic constants from the openwatersio tide-database
+      # at BUILD time and caches them under esphome-tide/generator/.station_cache/
+      # (so rebuilds are offline). Station ids: https://tidesandcurrents.noaa.gov/map/
+      tide_station_id: "8558690"
       tide_units: ft
 
 # Weather packages
