@@ -935,7 +935,7 @@ lvgl:
                   id: weather_temperature_today
                   align: TOP_LEFT
                   x: 30
-                  y: 10
+                  y: -3
                   text_font: sg_84
                   text_color: 0xE9EEF4
                   text: "70°"
