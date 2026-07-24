@@ -1,4 +1,4 @@
-# waveshare 7” ESP32-S3N8R8 Capacitive Touch Display 1024×600
+# Waveshare ESP32-S3-Touch-LCD-7B 7" Capacitive Touch Display 1024px × 600px
 # 512KB SRAM and 384KB ROM, with onboard 16MB Flash and 8MB PSRAM
 # https://www.waveshare.com/esp32-s3-lcd-7b.htm
 # Hardware configuration file
@@ -8,7 +8,7 @@ esphome:
   min_version: 2026.7.0
   project:
     name: "Waveshare.ESP32-S3-Touch-LCD-7B"
-    version: "1.0.0"
+    version: "1.0.5"
 
 esp32:
   variant: esp32s3
@@ -88,16 +88,6 @@ touchscreen:
     waveshare_io_ch32v003: wave_io
     number: 1
     mode: OUTPUT
-# on_touch:
-#   - lambda: |-
-#       ESP_LOGI("Touch", "Touch detected at x=%d, y=%d", touch.x, touch.y);
-# on_update:
-#   - lambda: |-
-#       for (auto touch: touches)  {
-#           if (touch.state <= 2) {
-#             ESP_LOGI("Touch points:", "id=%d x=%d, y=%d x.raw=%d, y.raw=%d", touch.id, touch.x, touch.y, touch.x_raw, touch.y_raw);
-#           }
-#       }
 
 # -------------------------------------------
 # Display
