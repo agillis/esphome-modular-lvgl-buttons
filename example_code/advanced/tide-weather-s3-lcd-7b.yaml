@@ -183,7 +183,7 @@ script:
     then:
       - lambda: |-
           // ── canvas geometry (overlay-absolute origin of the canvas) ─────────
-          const int LEFT = 58, TOP = 282;      // canvas top-left in overlay coords
+          const int LEFT = 58, TOP = 276;      // canvas top-left in overlay coords
           const int W = 426, H = 132;          // canvas size (must match widget)
                                                // plot right = 58+426 = 484 (aligns
                                                // with the stat chips / forecast cards)
@@ -1098,7 +1098,7 @@ lvgl:
               - label:
                   align: TOP_LEFT
                   x: 30
-                  y: 262
+                  y: 256
                   text_font: plex_11
                   text_color: 0x7C90A5
                   text: "TIDE · NEXT 36 HOURS"
@@ -1106,16 +1106,16 @@ lvgl:
                   id: tide_canvas
                   align: TOP_LEFT
                   x: 58
-                  y: 282
+                  y: 276
                   width: 426
                   height: 132
               # Y-axis labels (ft) aligned to the 5 / 2.5 / 0 gridlines
               # Y-axis labels 1..5 ft, centered on their gridlines (scale -1..5)
-              - label: { id: ylbl_5, align: TOP_LEFT, x: 30, y: 280, text_font: plex_13, text_color: 0x7C90A5, text: "5" }
-              - label: { id: ylbl_4, align: TOP_LEFT, x: 30, y: 300, text_font: plex_13, text_color: 0x7C90A5, text: "4" }
-              - label: { id: ylbl_3, align: TOP_LEFT, x: 30, y: 319, text_font: plex_13, text_color: 0x7C90A5, text: "3" }
-              - label: { id: ylbl_2, align: TOP_LEFT, x: 30, y: 339, text_font: plex_13, text_color: 0x7C90A5, text: "2" }
-              - label: { id: ylbl_1, align: TOP_LEFT, x: 30, y: 359, text_font: plex_13, text_color: 0x7C90A5, text: "1" }
+              - label: { id: ylbl_5, align: TOP_LEFT, x: 30, y: 274, text_font: plex_13, text_color: 0x7C90A5, text: "5" }
+              - label: { id: ylbl_4, align: TOP_LEFT, x: 30, y: 294, text_font: plex_13, text_color: 0x7C90A5, text: "4" }
+              - label: { id: ylbl_3, align: TOP_LEFT, x: 30, y: 313, text_font: plex_13, text_color: 0x7C90A5, text: "3" }
+              - label: { id: ylbl_2, align: TOP_LEFT, x: 30, y: 333, text_font: plex_13, text_color: 0x7C90A5, text: "2" }
+              - label: { id: ylbl_1, align: TOP_LEFT, x: 30, y: 353, text_font: plex_13, text_color: 0x7C90A5, text: "1" }
               # NOW label — repositioned onto the accent line each redraw
               # high/low marker time-label pool
               - label: { id: sg_marklbl0, align: TOP_LEFT, x: 0, y: 0, text_font: sg_14, text_color: 0xAEBFD0, hidden: true, text: "" }
@@ -1634,12 +1634,3 @@ lvgl:
         - label: { id: diag_cpu,     align: TOP_LEFT, x: 540, y: 354, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
         - label: { align: TOP_LEFT, x: 540, y: 396, text_font: plex_11, text_color: 0x7C90A5, text: "LAST RESTART" }
         - label: { id: diag_restart, align: TOP_LEFT, x: 540, y: 414, text_font: plex_16, text_color: 0xE9EEF4, text: "\xE2\x80\x94" }
-
-        # Footer hint
-        - label:
-            align: BOTTOM_LEFT
-            x: 40
-            y: -22
-            text_font: plex_13
-            text_color: 0x5FD4F4
-            text: "Full sensor list: built-in web UI \xC2\xB7 Diagnostic section"
