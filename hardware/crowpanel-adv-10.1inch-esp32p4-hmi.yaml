@@ -1,0 +1,231 @@
+---
+# The Elecrow  CrowPanel-Advanced-10.1inch-ESP32-P4-HMI-AI-Display-1024x600-IPS is a self contained, 10. inch 1024x600 touchscreen display with an ESP32-P4 MCU.
+# It has an ESP32-C6 co-processor that gives the P4 Wi-Fi capabilities.
+# the display itself is setting but not pin compatible to WAVESHARE-ESP32-P4-WIFI6-TOUCH-LCD-7B
+# Information: https://github.com/Elecrow-RD/CrowPanel-Advanced-10.1inch-ESP32-P4-HMI-AI-Display-1024x600-IPS-Touch-Screen
+
+
+substitutions:
+  # Screen Size (landscape orientation - 7B display)
+  # Swapped automatically for 90/270 rotation
+  screen_height: ${600 if rotation | default("180") not in ["90", "270"] else 1024}
+  screen_width: ${1024 if rotation | default("180") not in ["90", "270"] else 600}
+
+esphome:
+  min_version: 2026.7.0
+  project:
+    name: "crowpanel-advanced-10.1inch-esp32-p4-hmi-ai-display-1024x600-ips"
+    version: "1.0"
+
+esp32:
+  variant: esp32p4
+  engineering_sample: true  
+  cpu_frequency: 360MHZ
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      execute_from_psram: true
+      enable_idf_experimental_features: true
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+preferences:
+  flash_write_interval: 5min
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+  - channel: 4
+    voltage: 2.5V
+
+http_request:  # Needed by esp32_hosted-update and any JSON stuff
+
+
+# Enable logging
+logger:
+  level: debug
+  logs:
+    lvgl: info
+  hardware_uart: UART0
+
+# -------------------------------------------
+# Network hardware
+# -------------------------------------------
+
+esp32_hosted:
+  variant: esp32c6
+  active_high: true
+  reset_pin: GPIO32
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  bus_width: 1
+  d0_pin: GPIO14
+  sdio_frequency: 40MHz
+
+# Firmware update for esp32_hosted ESP32-C6
+update:
+  - platform: esp32_hosted
+    name: ESP-Hosted Firmware
+    icon: mdi:chip
+    type: http
+    source: https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json
+    update_interval: 6h
+
+# -------------------------------------------
+# Touchscreen gt911 i2c
+# -------------------------------------------
+i2c:
+  - id: bus_a
+    sda: GPIO45
+    scl: GPIO46
+    frequency: 400kHz
+
+    scan: true
+
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    i2c_id: bus_a
+    reset_pin: 40
+    interrupt_pin: 42
+    update_interval: 50ms
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+    # Enabled Touch Logger here
+    on_touch:
+      - logger.log:
+          format: "Touch at (%d, %d)"
+          args: [touch.x, touch.y]
+      - lambda: |-
+          ESP_LOGI("cal", "x=%d, y=%d, x_raw=%d, y_raw=%d",
+          touch.x,
+          touch.y,
+          touch.x_raw,
+          touch.y_raw
+          );
+
+# -------------------------------------------
+# Backlight
+# -------------------------------------------
+output:
+  - platform: ledc
+    pin: GPIO31
+    id: backlight_pwm
+  - platform: gpio
+    id: power_light
+    pin: GPIO29
+    inverted: true
+    
+light:
+  - platform: monochromatic
+    name: "Backlight"
+    output: backlight_pwm
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+    internal: true
+
+    default_transition_length: 250ms
+
+# -------------------------------------------
+# Display
+# -------------------------------------------
+display:
+  - platform: mipi_dsi
+    id: my_display
+    model: WAVESHARE-ESP32-P4-WIFI6-TOUCH-LCD-7B
+    reset_pin:
+      number: 41
+    update_interval: never
+    auto_clear_enabled: false
+    dimensions:
+      width: 1024
+      height: 600
+    color_order: RGB
+    color_depth: 16
+
+
+# Special LVGL settings required for this display
+lvgl:
+  rotation: ${rotation | default("180")}
+
+# -------------------------------------------
+# Audio devices
+# -------------------------------------------
+
+# ===== Amplifier Control =====
+switch:
+
+
+
+  - platform: gpio
+    id: audio_amplifier
+    name: Speaker Enable
+    icon: "mdi:speaker"
+    entity_category: config    
+    pin:
+      number: GPIO30
+      inverted: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: gpio
+    pin: GPIO20
+    id: mic_r_l
+    name: "Mic R-L"
+    restore_mode: ALWAYS_ON
+
+
+
+
+# ===== ES8311 Audio Codec Configuration =====
+i2s_audio:
+  # I2S bus for PDM microphone (clock only, data is on i2s_din_pin)
+  - id: i2s_mic
+    i2s_lrclk_pin: GPIO24
+  # I2S bus for external speaker amplifier
+  - id: i2s_spk
+    i2s_lrclk_pin: GPIO21
+    i2s_bclk_pin: GPIO22
+
+microphone:
+  # PDM digital microphone connected via I2S
+  - platform: i2s_audio
+    id: pdm_mic
+    i2s_audio_id: i2s_mic
+    i2s_din_pin: GPIO26
+    adc_type: external
+    pdm: true
+
+# ===== Speaker & Audio Pipeline =====
+speaker:
+  # External NS4168 I2S speaker amplifier
+  - platform: i2s_audio
+    id: my_speaker
+    i2s_audio_id: i2s_spk
+    i2s_dout_pin: GPIO23
+    dac_type: external
+
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: my_speaker
+    source_speakers:
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+
+  - platform: resampler
+    id: announcement_resampling_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+  - platform: resampler
+    id: media_resampling_speaker
+    output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
