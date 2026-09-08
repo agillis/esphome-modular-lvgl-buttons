@@ -160,6 +160,39 @@ Each detail page type also requires specific glyphs — see the type's `README.m
 
 ---
 
+## Adding your own images
+
+Every `image:` block in this repo uses the platform form introduced in ESPHome
+2026.7.0. If you add images in your own device YAML, the block **must be a list**
+whose entries each carry `platform: file`:
+
+```yaml
+image:
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: my_logo.png
+    id: my_logo
+    resize: 100x100
+```
+
+Two failure modes are worth knowing, because neither error message points at the
+file you need to fix:
+
+- **A mapping-shaped `image:` block silently deletes every image the packages
+  define.** Anything under `image:` that is not a list — even just a bare
+  `defaults:` key — replaces the package images instead of adding to them
+  (ESPHome merges two lists by concatenating, but a mapping wins outright). You
+  then get a cascade of `Couldn't find ID 'ha_img'` / `'esphome_img'` /
+  `'hue_ring_img'` errors pointing into `pages/loading.yaml` and
+  `ui/popup/popup_system.yaml`, where the IDs are in fact defined correctly.
+- **Don't fall back to the pre-2026.7 form.** List entries without `platform:`
+  mixed with this repo's platform-tagged entries disable ESPHome's automatic
+  migration entirely, giving
+  `'image' requires a 'platform' key but it was not specified`.
+
+---
+
 ## Theme
 
 The theme lives in [`common/theme/`](common/theme/README.md) and is a self-contained bundle — one include pulls in colors, fonts, MDI glyph substitutions, and LVGL styles. See the [theme README](common/theme/README.md) for the full color palette, font sizes, and customization reference.
