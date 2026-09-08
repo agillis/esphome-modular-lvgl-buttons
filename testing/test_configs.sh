@@ -157,12 +157,15 @@ if [ "$MODE" = "compile" ]; then
     # Render once, derive the coverage tokens: the chip family plus each
     # external component the config pulls in.
     rendered=$(esphome config "$basename" 2>/dev/null || true)
-    family=$(printf '%s\n' "$rendered" | family_from_rendered)
+    # Here-strings, not pipes: family_from_rendered's awk `exit`s at the first
+    # match, and a rendered config is far larger than the pipe buffer, so the
+    # writer would take SIGPIPE and `set -o pipefail` would abort the run.
+    family=$(family_from_rendered <<<"$rendered")
     family=${family:-host}
     tokens=("family:$family")
     while IFS= read -r c; do
       [ -n "$c" ] && tokens+=("comp:$c")
-    done < <(printf '%s\n' "$rendered" | comps_from_rendered)
+    done < <(comps_from_rendered <<<"$rendered")
 
     # Compile only if this config introduces a token nothing has covered yet.
     new_tokens=()
