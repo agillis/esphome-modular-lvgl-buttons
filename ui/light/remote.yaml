@@ -322,6 +322,34 @@ text_sensor:
                    id(${uid}_supports_brightness),
                    has_rgbww, has_rgbw, has_hs, has_xy, has_white, has_br);
 
+  - id: ${uid}_ha_min_kelvin
+    platform: homeassistant
+    entity_id: ${entity_id}
+    attribute: min_color_temp_kelvin
+    internal: true
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !x.empty() && x != "None";'
+          then:
+            - lvgl.arc.update:
+                id: ${uid}_kelvin_arc
+                min_value: !lambda return (int) atof(x.c_str());
+
+  - id: ${uid}_ha_max_kelvin
+    platform: homeassistant
+    entity_id: ${entity_id}
+    attribute: max_color_temp_kelvin
+    internal: true
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !x.empty() && x != "None";'
+          then:
+            - lvgl.arc.update:
+                id: ${uid}_kelvin_arc
+                max_value: !lambda return (int) atof(x.c_str());
+
 
 # ── Scripts ───────────────────────────────────────────────────────────────────
 
