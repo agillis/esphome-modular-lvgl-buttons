@@ -132,8 +132,6 @@ output:
   - platform: template
     id: gpio_backlight_pwm
     type: float
-    min_power: 0.05  # Below this the panel is effectively black
-    max_power: 1.0
     zero_means_zero: true
     write_action:
       - lambda: |-
