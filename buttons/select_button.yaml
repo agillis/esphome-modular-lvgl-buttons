@@ -1,0 +1,83 @@
+---
+# Button to select a given option for a select entity.
+# vars:
+#    uid:
+#    page_id:
+#    row:
+#    column:
+#    row_span:
+#    column_span:
+#    text:
+#    icon:
+#    entity_id:
+#    option_value:
+#    button_color_option_selected:
+#    icon_color_option_selected:
+#    label_color_option_selected:
+
+# This section add a button to LVGL page main_page
+lvgl:
+  pages:
+    - id: !extend ${page_id | default("main_page")}
+      widgets:
+        - container:
+            id: ${uid}
+            grid_cell_row_pos: ${row}
+            grid_cell_column_pos: ${column}
+            grid_cell_row_span: ${row_span | default(1)}
+            grid_cell_column_span: ${column_span | default(1)}
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            widgets:
+              - button:
+                  id: button_${uid}
+                  widgets:
+                    - label:
+                        text_font: $icon_font
+                        align: top_left
+                        id: icon_${uid}
+                        text: ${icon}
+                    - label:
+                        align: bottom_right
+                        id: label_${uid}
+                        text: ${text}
+                        long_mode: wrap
+                        width: 100%
+                  on_short_click:
+                    - homeassistant.action:
+                        action: select.select_option
+                        data:
+                          entity_id: ${entity_id}
+                          option: ${option_value}
+
+# This section will update input select state from Home Assistant
+text_sensor:
+  - id: widget_sensor_${uid}
+    platform: homeassistant
+    entity_id: ${entity_id}
+    on_value:
+      - if:
+          condition:
+            - text_sensor.state:
+                id: widget_sensor_${uid}
+                state: ${option_value}       
+          then:
+            - lvgl.widget.update:
+                id: button_${uid}
+                bg_color: ${button_color_option_selected | default(button_on_color)}
+            - lvgl.widget.update:
+                id: icon_${uid}
+                text_color: ${icon_color_option_selected | default(icon_on_color)}
+            - lvgl.widget.update:
+                id: label_${uid}
+                text_color: ${label_color_option_selected | default(label_on_color)}  
+          else:
+            - lvgl.widget.update:
+                id: button_${uid}
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: icon_${uid}
+                text_color: $icon_off_color
+            - lvgl.widget.update:
+                id: label_${uid}
+                text_color: $label_off_color
