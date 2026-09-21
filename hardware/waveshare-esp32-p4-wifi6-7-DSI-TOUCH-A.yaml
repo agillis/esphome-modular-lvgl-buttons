@@ -1,0 +1,238 @@
+# Waveshare ESP32-P4-WIFI6 (DEV-KIT) carrier board + Waveshare 7-DSI-TOUCH-A panel.
+#
+# This is the *two-piece* combination: the Raspberry-Pi-form-factor ESP32-P4-WIFI6
+# board with a 7inch 720x1280 IPS DSI panel plugged into the 22-pin MIPI-DSI FPC.
+# It is NOT the all-in-one ESP32-P4-WIFI6-Touch-LCD-7 — see
+# hardware/waveshare-esp32-p4-wifi6-touch-lcd-7.yaml for that one.
+#
+# How this differs from the integrated Touch-LCD-7 board:
+#   - No LCD reset GPIO      (BSP_LCD_RST      = GPIO_NUM_NC) — panel self-resets
+#   - No backlight PWM GPIO  (BSP_LCD_BACKLIGHT = GPIO_NUM_NC) — brightness is written
+#     over I2C to the panel's backlight controller: device 0x45, register 0x96, 0x00-0xFF
+#   - No touch INT / RST GPIO (both GPIO_NUM_NC) — GT9271 is polled on the shared I2C bus
+#   - No ES7210 mic ADC — the DEV-KIT uses the ES8311's analog mic input only
+#
+# Board wiki:  https://www.waveshare.com/wiki/ESP32-P4-WIFI6-DEV-KIT
+# Panel wiki:  https://www.waveshare.com/wiki/7-DSI-TOUCH-A
+# Vendor BSP:  https://github.com/waveshareteam/Waveshare-ESP32-components
+#              bsp/esp32_p4_platform/esp32_p4_platform.c  (bsp_display_brightness_set)
+---
+
+substitutions:
+  # Screen Size (native portrait 720x1280)
+  # Swapped automatically for 90/270 rotation
+  screen_height: ${1280 if rotation | default("0") not in ["90", "270"] else 720}
+  screen_width: ${720 if rotation | default("0") not in ["90", "270"] else 1280}
+
+esphome:
+  min_version: 2026.7.0
+  project:
+    name: "Waveshare.ESP32-P4-WIFI6-7-DSI-TOUCH-A"
+    version: "1.0"
+
+esp32:
+  board: esp32-p4-evboard
+  variant: esp32p4
+  # ESP32-P4NRW32: 32MB NOR flash + 32MB in-package PSRAM.
+  # Some early DEV-KIT revisions shipped 16MB flash — change this if the
+  # partition table fails to fit.
+  flash_size: 32MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      execute_from_psram: true
+      enable_idf_experimental_features: true
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+preferences:
+  flash_write_interval: 5min
+
+# Powers the MIPI DSI PHY — the panel stays dark without this.
+esp_ldo:
+  - voltage: 2.5V
+    channel: 3
+
+http_request:  # Needed by esp32_hosted-update and any JSON stuff
+
+# -------------------------------------------
+# Network hardware
+# -------------------------------------------
+# The ESP32-P4 has no radio of its own; the onboard ESP32-C6-MINI-1 provides
+# Wi-Fi 6 over SDIO. If the C6 never comes up on your unit, try active_high: false.
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true
+
+# The board also has a 100M IP101 Ethernet PHY (RMII). Not enabled here because
+# common/wifi.yaml is the usual transport. Pins if you want it:
+#   type: IP101, mdc_pin: GPIO31, mdio_pin: GPIO52, power_pin: GPIO51,
+#   clk: {pin: GPIO50, mode: CLK_EXT_IN}
+
+# Firmware update for esp32_hosted ESP32-C6
+update:
+  - platform: esp32_hosted
+    name: ESP-Hosted Firmware
+    icon: mdi:chip
+    type: http
+    source: https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json
+    update_interval: 6h
+
+# -------------------------------------------
+# Shared I2C bus
+# -------------------------------------------
+# One bus serves everything: ES8311 codec (0x18), the panel's GT9271 touch
+# controller (0x5D), the panel's backlight controller (0x45), plus whatever is
+# wired to the I2C header / 40-pin header. Onboard parts top out at 400kHz.
+i2c:
+  - id: bus_a
+    sda: GPIO07
+    scl: GPIO08
+    frequency: 400kHz
+    scan: true
+
+# -------------------------------------------
+# Touchscreen GT9271 (GT911-compatible) over I2C
+# -------------------------------------------
+# No interrupt or reset pin is routed on the DSI FPC, so the driver polls.
+# If the boot scan reports 0x14 instead of 0x5D, add `address: 0x14` here.
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    i2c_id: bus_a
+    display: main_display
+    update_interval: 50ms
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+    # on_touch:
+    #   - lambda: |-
+    #       ESP_LOGI("cal", "x=%d, y=%d, x_raw=%d, y_raw=%d",
+    #                touch.x, touch.y, touch.x_raw, touch.y_raw);
+
+# -------------------------------------------
+# Backlight (I2C, not PWM)
+# -------------------------------------------
+# The 7-DSI-TOUCH-A carries its own backlight controller. Brightness is a single
+# byte written to register 0x96 of I2C device 0x45 — same as the vendor BSP's
+# bsp_display_brightness_set(). A template output lets the normal
+# monochromatic light (and common/backlight_time.yaml) drive it unchanged.
+output:
+  - platform: template
+    id: gpio_backlight_pwm
+    type: float
+    min_power: 0.05  # Below this the panel is effectively black
+    max_power: 1.0
+    zero_means_zero: true
+    write_action:
+      - lambda: |-
+          uint8_t level = (uint8_t) lroundf(state * 255.0f);
+          uint8_t data[2] = {0x96, level};
+          id(bus_a).write(0x45, data, sizeof(data));
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 250ms
+
+# -------------------------------------------
+# Display — MIPI DSI, 2 lanes @ 1000Mbps, ILI9881C
+# -------------------------------------------
+display:
+  - platform: mipi_dsi
+    id: main_display
+    model: WAVESHARE-7-DSI-TOUCH-A
+    update_interval: never
+    auto_clear_enabled: false
+    dimensions:
+      width: 720
+      height: 1280
+
+# Special LVGL settings required for this display.
+# The panel driver does no hardware transform, so rotation is done in LVGL.
+lvgl:
+  rotation: ${rotation | default("0")}
+
+# -------------------------------------------
+# Audio devices
+# -------------------------------------------
+# ES8311 codec on the shared I2C bus, wired to the 3.5mm jack and the
+# speaker/mic header. There is no ES7210 on this board — the microphone is the
+# codec's own analog input.
+i2s_audio:
+  - id: audio_bus
+    i2s_mclk_pin: GPIO13
+    i2s_lrclk_pin: GPIO10
+    i2s_bclk_pin: GPIO12
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    i2c_id: bus_a
+    address: 0x18
+
+microphone:
+  - platform: i2s_audio
+    id: my_microphone
+    i2s_audio_id: audio_bus
+    i2s_din_pin: GPIO11
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    adc_type: external
+
+speaker:
+  - platform: i2s_audio
+    id: my_speaker
+    i2s_audio_id: audio_bus
+    i2s_dout_pin: GPIO9
+    audio_dac: es8311_dac
+    dac_type: external
+    channel: mono
+    buffer_duration: 100ms
+    bits_per_sample: 16bit
+    sample_rate: 48000
+
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: my_speaker
+    source_speakers:
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+
+  - platform: resampler
+    id: announcement_resampling_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+  - platform: resampler
+    id: media_resampling_speaker
+    output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+switch:
+  - platform: gpio
+    id: audio_amplifier
+    name: Speaker Enable
+    icon: "mdi:speaker"
+    entity_category: config
+    pin: GPIO53  # BSP_POWER_AMP_IO, active high
+    restore_mode: RESTORE_DEFAULT_ON
