@@ -271,6 +271,20 @@ device (`hardware: !include esphome-modular-lvgl-buttons/hardware/<model>.yaml`)
 | `waveshare-esp32-p4-wifi6-touch-lcd-7` | 7.0" | 720×1280 | `mipi_dsi` |
 | `waveshare-esp32-p4-wifi6-touch-lcd-7b` | 7.0" | 1024×600 | `mipi_dsi` |
 | `waveshare-esp32-p4-wifi6-touch-lcd-10.1` | 10.1" | 800×1280 | `mipi_dsi` |
+| `waveshare-esp32-p4-wifi6-7-DSI-TOUCH-A` | 7.0" | 720×1280 | `mipi_dsi` |
+
+`waveshare-esp32-p4-wifi6-7-DSI-TOUCH-A` is the **two-piece** combination — a
+[ESP32-P4-WIFI6](https://www.waveshare.com/wiki/ESP32-P4-WIFI6-DEV-KIT) dev board with a
+separate [7-DSI-TOUCH-A](https://www.waveshare.com/wiki/7-DSI-TOUCH-A) panel on the
+MIPI-DSI FPC, not the all-in-one `waveshare-esp32-p4-wifi6-touch-lcd-7`. Same ILI9881C
+panel, different wiring: the dev board routes no LCD reset, no backlight PWM and no touch
+INT/RST (all `GPIO_NUM_NC` in the vendor BSP), so backlight brightness is written over I2C
+to device `0x45`, register `0x96`, and the GT9271 is polled at `0x5D` on the shared bus.
+Demo config: `example_code/waveshare-esp32-p4-wifi6-7-DSI-TOUCH-A_display_modular.yaml`.
+
+Pass `rotation: "270"` to this hardware file — that is the correct upright orientation
+for this panel, and at rotation 0 the image is upside down. LVGL does the rotating, and
+on the ESP32-P4 it is PPA-accelerated, so there is no framerate cost.
 
 ### Guition
 
