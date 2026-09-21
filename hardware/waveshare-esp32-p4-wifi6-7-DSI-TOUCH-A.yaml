@@ -164,7 +164,12 @@ display:
       height: 1280
 
 # Special LVGL settings required for this display.
-# The panel driver does no hardware transform, so rotation is done in LVGL.
+# The panel driver does no hardware transform, so rotation is done in LVGL
+# (on the ESP32-P4 this is PPA-accelerated, so it is effectively free).
+#
+# NOTE: pass rotation: "270" from your device config. That is the correct upright
+# orientation for this panel — at rotation 0 the image is upside down. The default
+# below stays 0 only to match the rest of the hardware/ files.
 lvgl:
   rotation: ${rotation | default("0")}
 

@@ -81,7 +81,10 @@ packages:
   hardware: !include
     file: esphome-modular-lvgl-buttons/hardware/waveshare-esp32-p4-wifi6-7-DSI-TOUCH-A.yaml
     vars:
-      rotation: "270"  # set screen rotation 0, 90, 180, 270
+      # 270 is the correct upright orientation for this panel. The 7-DSI-TOUCH-A
+      # scans bottom-to-top relative to LVGL, so rotation 0 renders upside down.
+      # Valid values: 0, 90, 180, 270.
+      rotation: "270"
   # Media Player and Voice Assistant
   media_voice: !include esphome-modular-lvgl-buttons/hardware/media_player-voice_assistant.yaml
 

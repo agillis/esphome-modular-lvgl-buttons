@@ -282,6 +282,10 @@ INT/RST (all `GPIO_NUM_NC` in the vendor BSP), so backlight brightness is writte
 to device `0x45`, register `0x96`, and the GT9271 is polled at `0x5D` on the shared bus.
 Demo config: `example_code/waveshare-esp32-p4-wifi6-7-DSI-TOUCH-A_display_modular.yaml`.
 
+Pass `rotation: "270"` to this hardware file — that is the correct upright orientation
+for this panel, and at rotation 0 the image is upside down. LVGL does the rotating, and
+on the ESP32-P4 it is PPA-accelerated, so there is no framerate cost.
+
 ### Guition
 
 | Model | Size | Resolution | Driver |
