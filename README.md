@@ -289,6 +289,7 @@ MIPI-DSI FPC.
 | `guition-esp32-p4-jc1060p470` | 7.0" | 1024×600 | `mipi_dsi` |
 | `guition-esp32-p4-jc1060p470c` | 7.0" | 1024×600 | `mipi_dsi` |
 | `guition-esp32-p4-jc1060p470-v2` | 7.0" | 1024×600 | `mipi_dsi` |
+| `guition-esp32-p4-jc1060p470c-v2` | 7.0" | 1024×600 | `mipi_dsi` |
 | `guition-esp32-p4-jc4880p443` | 4.3" | 480×800 | `mipi_dsi` |
 | `guition-esp32-p4-jc8012p4a1` | 10.1" | 800×1280 | `mipi_dsi` |
 | `guition-esp32-p4-jc8012p4a1-v2` | 10.1" | 800×1280 | `mipi_dsi` |
@@ -312,8 +313,9 @@ case; boards without that marking use `guition-esp32-p4-jc1060p470`. The wrong
 profile gives a white screen with a vertical noise band. The V2 panel keeps the same
 JD9165 driver but needs its own init sequence and timings, reset on GPIO0 rather than
 GPIO27, and the ESP32-C6 SDIO clock dropped to 10MHz to stop it interfering with the
-MIPI-DSI stream. It is based on the plain `jc1060p470` board config — if you have the
-`-c` board variant with a V2 panel, take its display block and `sdio_frequency`.
+MIPI-DSI stream. `guition-esp32-p4-jc1060p470c-v2` is the same panel revision on the
+`-c` board variant, which keeps its own LDO channel, audio pin map and lack of a
+status LED.
 
 ### Sunton
 
