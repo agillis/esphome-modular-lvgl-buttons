@@ -1,0 +1,334 @@
+# Guition-ESP32-P4-JC1060P470c V2 ("New Panel") 7" Capacitive touch
+#
+# Hardware configuration file
+---
+# The -c board variant fitted with the 2026 "New Panel" revision. Guition
+# prints "V2" in the SKU or material number on the label on the back of the
+# case; boards without that marking need guition-esp32-p4-jc1060p470c. Using
+# the wrong profile gives a white screen with a vertical noise band.
+#
+# This is guition-esp32-p4-jc1060p470c with the panel changes from
+# guition-esp32-p4-jc1060p470-v2 applied: the JD9165 "New Panel" init sequence
+# and timings, reset on GPIO0, and the slower ESP32-C6 SDIO clock. The -c
+# board's own differences (single LDO channel, audio pin map, no status LED)
+# are untouched.
+
+substitutions:
+  # Screen Size
+  screen_height: 600
+  screen_width: 1024
+
+esphome:
+  min_version: 2026.7.0
+  project:
+    name: "Guition.ESP32-P4-JC1060P470c-V2"
+    version: "1.0"
+
+esp32:
+  board: esp32-p4-evboard
+  variant: esp32p4
+  # esp32-p4-evboard is pre-rev3 silicon; stated explicitly so the mismatch
+  # is obvious if this is ever rebased onto a production-rev3 board.
+  engineering_sample: true
+  flash_size: 16MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      execute_from_psram: true
+      enable_idf_experimental_features: true
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+preferences:
+  flash_write_interval: 5min
+
+http_request:  # Needed by esp32_hosted-update and any JSON stuff
+
+# -------------------------------------------
+# Network hardware
+# -------------------------------------------
+
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true
+  # The V2 panel shows a fixed band of vertical streaks whenever the ESP32-C6
+  # SDIO link runs fast enough to interfere with the MIPI-DSI stream. 10MHz
+  # removes it (verified upstream on a JC1060P470C_I_W_Y / P4 rev 1.3 unit);
+  # the default is 40MHz. Note this halves the link budget the original panel
+  # keeps for camera transfers, so camera throughput here is untested.
+  sdio_frequency: 10MHz
+
+# Firmware update for esp32_hosted ESP32-C6
+update:
+  - platform: esp32_hosted
+    name: ESP-Hosted Firmware
+    icon: mdi:chip
+    type: http
+    source: https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json
+    update_interval: 6h
+
+# ethernet:
+#   type: IP101
+#   mdc_pin: GPIO31
+#   mdio_pin: GPIO52
+#   clk:
+#     pin: GPIO50
+#     mode: CLK_EXT_IN
+#   phy_addr: 1
+#   power_pin: GPIO51
+
+# -------------------------------------------
+# Internal outputs
+# -------------------------------------------
+output:
+  - id: gpio_backlight_pwm
+    platform: ledc
+    pin: GPIO23
+      #    frequency: 100Hz
+      #    inverted: false
+    #min_power: 0.1 # To prevent the backlight from being too dim
+    #    max_power: 0.8 # To prevent overheating due to excessive lighting
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 0s
+    gamma_correct: 1.0
+
+# -------------------------------------------
+# i2c bus
+# -------------------------------------------
+i2c:
+  - id: bus_a
+    sda: GPIO7
+    scl: GPIO8
+    frequency: 400kHz
+
+# -------------------------------------------
+# Touchscreen
+# -------------------------------------------
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    reset_pin: GPIO22
+    interrupt_pin: GPIO21
+    address: 0x5D
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+#   on_touch:
+#     - logger.log:
+#           format: Touch at (%d, %d)
+#           args: [touch.x, touch.y]
+#     - lambda: |-
+#           ESP_LOGI("cal", "x=%d, y=%d, x_raw=%d, y_raw=%0d",
+#               touch.x,
+#               touch.y,
+#               touch.x_raw,
+#               touch.y_raw
+#               );
+
+# -------------------------------------------
+# Display
+# -------------------------------------------
+display:
+  - platform: mipi_dsi
+    model: CUSTOM
+    id: my_display
+    update_interval: never
+    color_order: RGB
+    # Panel LCD_RST is GPIO0 on the JC1060P470C_I_W_Y schematic (FPC1 pin 4).
+    # The -c profile ships GPIO05, which only reaches the expansion header. A
+    # wrong reset pin also suppresses ESPHome's software reset, so a warm reboot
+    # (flash, OTA, restart) keeps the previous firmware's panel registers until
+    # the next power cycle.
+    reset_pin:
+      number: GPIO0
+    # Initialise the panel before the backlight restores its state (light setup
+    # runs at priority ~799); an un-initialised JD9165 shows a bright lavender
+    # field, so the backlight must not come on before init.
+    setup_priority: 850
+    auto_clear_enabled: false
+    dimensions:
+      width: 1024
+      height: 600
+    pixel_mode: 16bit
+    color_depth: 16
+    lanes: 2
+    lane_bit_rate: 750Mbps
+    pclk_frequency: 52MHz
+    hsync_pulse_width: 24
+    hsync_back_porch: 136
+    hsync_front_porch: 160
+    vsync_pulse_width: 2
+    vsync_back_porch: 21
+    vsync_front_porch: 12
+    # JD9165 vendor init for the 2026 "New Panel". ESPHome appends
+    # PIXFMT/MADCTL/INVOFF/SLPOUT/DISPON, so do not add 0x3A, 0x36 or 0x29.
+    # Both delays and the trailing 0x11 are load-bearing (see below).
+    init_sequence:
+      # The JD9165 needs 120ms after reset before it accepts the vendor table.
+      # ESPHome holds only SLPOUT until 120ms after reset, not the vendor
+      # table, so the wait is declared here. Without it the panel comes up
+      # white on a warm reboot; a cold boot survives on power-on settling.
+      - delay 120ms
+      - [0x30, 0x00]
+      - [0xF7, 0x49, 0x61, 0x02, 0x00]
+      - [0x30, 0x01]
+      - [0x04, 0x0C]
+      - [0x05, 0x08]
+      - [0x0B, 0x11]
+      - [0x20, 0x04]
+      - [0x1F, 0x05]
+      - [0x23, 0x38]
+      - [0x28, 0x18]
+      - [0x29, 0x29]
+      - [0x2A, 0x01]
+      - [0x2B, 0x29]
+      - [0x2C, 0x01]
+      - [0x30, 0x02]
+      - [0x00, 0x05]
+      - [0x01, 0x22]
+      - [0x02, 0x08]
+      - [0x03, 0x12]
+      - [0x04, 0x16]
+      - [0x05, 0x64]
+      - [0x06, 0x00]
+      - [0x07, 0x00]
+      - [0x08, 0x78]
+      - [0x09, 0x00]
+      - [0x0A, 0x04]
+      - [0x0B, 0x16, 0x17, 0x0B, 0x0D, 0x0D, 0x0D, 0x11, 0x10, 0x07, 0x07, 0x09]
+      - [0x0C, 0x09, 0x1E, 0x1E, 0x1C, 0x1C, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D]
+      - [0x0D, 0x0A, 0x05, 0x0B, 0x0D, 0x0D, 0x0D, 0x11, 0x10, 0x06, 0x06, 0x08]
+      - [0x0E, 0x08, 0x1F, 0x1F, 0x1D, 0x1D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D]
+      - [0x0F, 0x0A, 0x05, 0x0D, 0x0B, 0x0D, 0x0D, 0x11, 0x10, 0x1D, 0x1D, 0x1F]
+      - [0x10, 0x1F, 0x08, 0x08, 0x06, 0x06, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D]
+      - [0x11, 0x16, 0x17, 0x0D, 0x0B, 0x0D, 0x0D, 0x11, 0x10, 0x1C, 0x1C, 0x1E]
+      - [0x12, 0x1E, 0x09, 0x09, 0x07, 0x07, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D]
+      - [0x13, 0x00, 0x00, 0x00, 0x00]
+      - [0x14, 0x00, 0x00, 0x41, 0x41]
+      - [0x15, 0x00, 0x00, 0x00, 0x00]
+      - [0x17, 0x00]
+      - [0x18, 0x85]
+      - [0x19, 0x06, 0x09]
+      - [0x1A, 0x05, 0x08]
+      - [0x1B, 0x0A, 0x04]
+      - [0x26, 0x00]
+      - [0x27, 0x00]
+      - [0x30, 0x06]
+      - [0x12, 0x3F, 0x25, 0x27, 0x35, 0x1D, 0x1B, 0x1B, 0x1A, 0x18, 0x0A, 0x2A, 0x21, 0x19, 0x30]
+      - [0x13, 0x3F, 0x26, 0x27, 0x35, 0x1E, 0x1C, 0x1C, 0x1A, 0x18, 0x0B, 0x2A, 0x21, 0x19, 0x30]
+      - [0x30, 0x0A]
+      - [0x02, 0x4F]
+      - [0x0B, 0x40]
+      - [0x30, 0x0D]
+      - [0x0D, 0x04]
+      - [0x10, 0x05]
+      - [0x11, 0x0C]
+      - [0x12, 0x05]
+      - [0x13, 0x0C]
+      - [0x30, 0x00]
+      # Deliberate SLPOUT for vendor-timing fidelity: Guition's driver waits
+      # 120ms between sleep-out and display-on, while ESPHome appends its own
+      # SLPOUT then DISPON only ~10ms later. This pair restores that margin.
+      - [0x11]
+      - delay 120ms
+
+
+# Special LVGL settings required for this display
+lvgl:
+  rotation: ${rotation | default("0")}
+
+# -------------------------------------------
+# Audio - speaker/mic
+# -------------------------------------------
+i2s_audio:
+  - id: audio_bus
+    i2s_lrclk_pin: GPIO10
+    i2s_bclk_pin: GPIO12
+    i2s_mclk_pin: GPIO13
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    bits_per_sample: 16bit
+    i2c_id: bus_a
+    address: 0x18
+
+audio_adc:
+  - platform: es7210
+    id: es7210_adc
+    bits_per_sample: 16bit
+    i2c_id: bus_a
+    address: 0x32
+    sample_rate: 16000
+
+microphone:
+  - platform: i2s_audio
+    id: my_microphone
+    i2s_audio_id: audio_bus
+    i2s_din_pin: GPIO48
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    adc_type: external
+    channel: right
+
+speaker:
+  - platform: i2s_audio
+    id: my_speaker
+    i2s_audio_id: audio_bus
+    i2s_dout_pin: GPIO9
+    audio_dac: es8311_dac
+    dac_type: external
+    channel: left
+    buffer_duration: 100ms
+    bits_per_sample: 16bit
+    sample_rate: 48000
+
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: my_speaker
+    source_speakers:
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+
+  - platform: resampler
+    id: announcement_resampling_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+  - platform: resampler
+    id: media_resampling_speaker
+    output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+
+switch:
+  - platform: gpio
+    pin: GPIO11
+    name: "Audio Amplifier"
+    id: audio_amplifier
+    restore_mode: ALWAYS_ON
