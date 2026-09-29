@@ -1,0 +1,201 @@
+---
+# Hardware configuration file
+# Guition-ESP32-P4-JC8012P4A1 V2 10.1"  1280 x 800 Smart Screen
+#
+# http://pan.jczn1688.com/directlink/1/HMI%20display/JC8012P4A1C_I_W_Y.zip
+#
+# Later JC8012P4A1 units ship a different LCD panel behind the same JD9365
+# driver chip. It needs the JC8012P4A1-V2 init sequence and timings (70MHz
+# pclk, 1.5Gbps lanes) — driving it with the original JC8012P4A1 model leaves
+# the screen blank or garbled. Pins, GSL3670 touch controller and audio are
+# identical to the original board.
+#
+# This profile targets boards with pre-rev3 ESP32-P4 engineering-sample
+# silicon. Check the boot log for "chip revision: vX.Y" — if it reports v3.0
+# or later, use guition-esp32-p4-jc8012p4a1-v3.yaml instead.
+
+substitutions:
+  # Screen Size (portrait orientation - 10.1" display)
+  # Swapped automatically for 90/270 rotation
+  screen_height: ${1280 if rotation | default("180") not in ["90", "270"] else 800}
+  screen_width: ${800 if rotation | default("180") not in ["90", "270"] else 1280}
+
+esphome:
+  min_version: 2026.8.0  # JC8012P4A1-V2 display model
+  project:
+    name: "Guition.ESP32-P4-JC8012P4A1-V2"
+    version: "1.0"
+
+esp32:
+  board: esp32-p4-evboard
+  variant: esp32p4
+  engineering_sample: true
+  flash_size: 16MB
+  cpu_frequency: 360MHz
+  # This panel's JD9365 init sequence is ~200 commands at 1.5Gbps. The
+  # default 5s task watchdog fires part-way through display setup, so give
+  # it room (same reason as the Waveshare 10.1 DSI panel).
+  watchdog_timeout: 30s
+  framework:
+    type: esp-idf
+    advanced:
+      execute_from_psram: true
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+preferences:
+  flash_write_interval: 5min
+
+http_request:  # Needed by esp32_hosted-update and any JSON stuff
+
+# -------------------------------------------
+# Network hardware
+# -------------------------------------------
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true
+
+# Firmware update for esp32_hosted ESP32-C6
+update:
+  - platform: esp32_hosted
+    name: ESP-Hosted Firmware
+    icon: mdi:chip
+    type: http
+    source: https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json
+    update_interval: 6h
+# -------------------------------------------
+# Internal outputs
+# -------------------------------------------
+output:
+  # Backlight LED
+  - platform: ledc
+    pin: GPIO23
+    id: gpio_backlight_pwm
+    # 100Hz makes this panel's backlight driver whine; stay above audible.
+    frequency: 20000Hz
+    min_power: 0.03
+    zero_means_zero: true
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+
+# -------------------------------------------
+# i2c bus
+# -------------------------------------------
+i2c:
+  - id: bus_a
+    sda: GPIO7
+    scl: GPIO8
+    scan: true
+    frequency: 400kHz
+
+i2c_device:
+  - id: i2cdev1
+    address: 0x18
+  - id: i2cdev2
+    address: 0x32
+  - id: i2cdev3
+    address: 0x36
+  - id: i2cdev4
+    address: 0x40
+
+# -------------------------------------------
+# Touchscreen
+# -------------------------------------------
+touchscreen:
+  - platform: gsl3670
+    id: my_touchscreen
+    model: GUITION-JC8012P4A1
+    # model provides reset_pin (GPIO22), interrupt_pin (GPIO21),
+    # firmware, and calibrated transform/bounds — no overrides needed.
+
+# -------------------------------------------
+# Display
+# -------------------------------------------
+display:
+  - platform: mipi_dsi
+    model: JC8012P4A1-V2
+    id: my_display
+    update_interval: never
+    reset_pin: GPIO27
+    auto_clear_enabled: false
+    color_order: RGB
+    dimensions:
+      width: 800
+      height: 1280
+
+# Special LVGL settings required for this display
+lvgl:
+  rotation: ${rotation | default("180")}
+  buffer_size: 100%
+
+# -------------------------------------------
+# Audio - speaker/mic
+# -------------------------------------------
+i2s_audio:
+  - id: i2s_output
+    i2s_lrclk_pin: GPIO10
+    i2s_bclk_pin: GPIO12
+    i2s_mclk_pin: GPIO13
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    use_microphone: true
+
+microphone:
+  - platform: i2s_audio
+    id: my_microphone
+    i2s_din_pin: GPIO11
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    adc_type: external
+
+speaker:
+  - platform: i2s_audio
+    i2s_audio_id: i2s_output
+    id: my_speaker
+    i2s_dout_pin: GPIO9
+    dac_type: external
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: stereo
+    audio_dac: es8311_dac
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: my_speaker
+    source_speakers:
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+  - platform: resampler
+    id: media_resampling_speaker
+    output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+  - platform: resampler
+    id: announcement_resampling_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16

@@ -290,6 +290,20 @@ MIPI-DSI FPC.
 | `guition-esp32-p4-jc1060p470c` | 7.0" | 1024×600 | `mipi_dsi` |
 | `guition-esp32-p4-jc4880p443` | 4.3" | 480×800 | `mipi_dsi` |
 | `guition-esp32-p4-jc8012p4a1` | 10.1" | 800×1280 | `mipi_dsi` |
+| `guition-esp32-p4-jc8012p4a1-v2` | 10.1" | 800×1280 | `mipi_dsi` |
+| `guition-esp32-p4-jc8012p4a1-v3` | 10.1" | 800×1280 | `mipi_dsi` |
+
+The three `jc8012p4a1` entries are the same 10.1" board at different revisions, and
+picking the wrong one leaves the screen blank or garbled:
+
+- `guition-esp32-p4-jc8012p4a1` — original panel (`JC8012P4A1` init sequence).
+- `guition-esp32-p4-jc8012p4a1-v2` — later units with a different LCD behind the same
+  JD9365 driver, on pre-rev3 ESP32-P4 engineering-sample silicon.
+- `guition-esp32-p4-jc8012p4a1-v3` — same later LCD, on production (rev3) ESP32-P4.
+
+If the display works but the board reboots at boot, or ESPHome rejects
+`engineering_sample`, you are on the wrong one of `-v2` / `-v3` — check the boot log
+for `chip revision: vX.Y`. Both need ESPHome 2026.8.0 or newer.
 
 ### Sunton
 
