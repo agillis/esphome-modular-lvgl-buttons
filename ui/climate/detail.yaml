@@ -68,6 +68,14 @@ lvgl:
     widgets:
 
     # ── MAIN ARC ──────────────────────────────────────────────────────────
+    # width/height are set here as a starting size only. An arc's width and
+    # height are independent LVGL properties, so sizing both to the same
+    # percentage (e.g. 90%/90%) only draws a circle on a square screen — on
+    # a landscape panel the two percentages resolve to different pixel
+    # counts and the arc renders as an ellipse. The on_boot lambda below
+    # squares it (and the three labels sharing its center) to 90% of
+    # whichever screen dimension is smaller, using LVGL's actual reported
+    # resolution rather than a hardcoded size or a threaded substitution.
     - arc:
         id: ${uid}_arc
         align: CENTER
@@ -268,13 +276,20 @@ lvgl:
           - lvgl.widget.show: ${uid}_content
 
     # ── MODE DROPDOWN — all buttons hidden by default, shown at runtime ───
+    # Height is a percentage of the page (not a fixed px count) so this
+    # never overflows a short screen, and buttons use flex_grow instead of
+    # a fixed height so they share whatever space is actually available —
+    # comfortably roomy on a tall panel, still fitting on a short one.
+    # Width stays a fixed, deliberately narrow px value: this is a compact
+    # modal menu, not something that should stretch edge-to-edge on a wide
+    # landscape screen.
     - obj:
         id: ${uid}_mode_dropdown
         hidden: true
         align: CENTER
         y: 0
         width: 200
-        height: 390
+        height: 80%
         bg_color: gray800
         radius: 20
         border_width: 0
@@ -288,8 +303,8 @@ lvgl:
         widgets:
         - button:
             id: ${uid}_btn_mode_off
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -308,8 +323,8 @@ lvgl:
         - button:
             id: ${uid}_btn_mode_heat
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -328,8 +343,8 @@ lvgl:
         - button:
             id: ${uid}_btn_mode_cool
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -348,8 +363,8 @@ lvgl:
         - button:
             id: ${uid}_btn_mode_heat_cool
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -368,8 +383,8 @@ lvgl:
         - button:
             id: ${uid}_btn_mode_fan_only
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -388,8 +403,8 @@ lvgl:
         - button:
             id: ${uid}_btn_mode_dry
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -413,7 +428,7 @@ lvgl:
         align: CENTER
         y: 0
         width: 200
-        height: 262
+        height: 80%
         bg_color: gray800
         radius: 20
         border_width: 0
@@ -428,8 +443,8 @@ lvgl:
         - button:
             id: ${uid}_btn_fan_auto
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -448,8 +463,8 @@ lvgl:
         - button:
             id: ${uid}_btn_fan_low
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -468,8 +483,8 @@ lvgl:
         - button:
             id: ${uid}_btn_fan_medium
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -488,8 +503,8 @@ lvgl:
         - button:
             id: ${uid}_btn_fan_high
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -513,7 +528,7 @@ lvgl:
         align: CENTER
         y: 0
         width: 200
-        height: 262
+        height: 80%
         bg_color: gray800
         radius: 20
         border_width: 0
@@ -528,8 +543,8 @@ lvgl:
         - button:
             id: ${uid}_btn_swing_off
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -548,8 +563,8 @@ lvgl:
         - button:
             id: ${uid}_btn_swing_both
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -568,8 +583,8 @@ lvgl:
         - button:
             id: ${uid}_btn_swing_vertical
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -588,8 +603,8 @@ lvgl:
         - button:
             id: ${uid}_btn_swing_horizontal
             hidden: true
-            width: 180
-            height: 52
+            width: 100%
+            flex_grow: 1
             bg_color: gray900
             radius: 12
             shadow_width: 0
@@ -605,6 +620,30 @@ lvgl:
               - lvgl.widget.hide: ${uid}_dismiss_overlay
               - lvgl.widget.show: ${uid}_content
               - script.execute: ${uid}_climate_set_swing_horizontal
+
+# ── Square the arc to the smaller screen dimension ─────────────────────────────
+# Runs once at boot, after LVGL widgets exist. Queries the display's actual
+# reported resolution (not a substitution) so this works regardless of how —
+# or whether — the host config threads screen_width/screen_height through.
+# The three labels share the arc's center, so their y-offsets (originally
+# tuned against a 432px arc on a 480x480 screen) are rescaled by the same
+# factor to stay proportionally placed inside rings of any size.
+esphome:
+  on_boot:
+  - priority: -200
+    then:
+    - lambda: |-
+        lv_display_t *disp = lv_display_get_default();
+        int32_t hres = lv_display_get_horizontal_resolution(disp);
+        int32_t vres = lv_display_get_vertical_resolution(disp);
+        int32_t side = (int32_t) (0.9f * (hres < vres ? hres : vres));
+        lv_obj_set_size(id(${uid}_arc), side, side);
+        lv_obj_align(id(${uid}_mode_label), LV_ALIGN_CENTER, 0,
+          (int32_t) (-0.2083f * side));
+        lv_obj_align(id(${uid}_target_label), LV_ALIGN_CENTER, 0,
+          (int32_t) (-0.0463f * side));
+        lv_obj_align(id(${uid}_current_label), LV_ALIGN_CENTER, 0,
+          (int32_t) (0.1389f * side));
 
 script:
 # ── Debounce arc drag — sends command 500 ms after last on_value ──────────────

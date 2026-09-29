@@ -148,13 +148,20 @@ lvgl:
 
     # ── CONTROL COLUMN — up / stop+my / down, stacked vertically ───────
     # Stateless only — statefull covers use the slider above instead.
+    # Sized as a percentage of the page rather than a fixed 260x260 box:
+    # a fixed box this size is a small, stranded island on a large
+    # landscape panel, and risks clipping on the shorter end of this
+    # library's supported screen range. The three 70x70 buttons inside
+    # keep their fixed size (a physical touch target, not something that
+    # should balloon on a bigger screen) — only the space they're
+    # distributed across grows or shrinks with the screen.
     - obj:
         id: ${uid}_controls_col
         hidden: true
         align: CENTER
         y: 30
-        width: 260
-        height: 260
+        width: 40%
+        height: 60%
         bg_opa: transp
         border_width: 0
         layout:
