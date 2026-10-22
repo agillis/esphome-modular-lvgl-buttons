@@ -280,7 +280,7 @@ audio_adc:
     id: es7210_adc
     bits_per_sample: 16bit
     i2c_id: bus_a
-    address: 0x32
+    address: 0x36
     sample_rate: 16000
 
 microphone:
