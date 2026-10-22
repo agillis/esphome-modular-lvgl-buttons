@@ -15,6 +15,7 @@
 #   forecast_size: forecast icon size            (default 100)
 #   pw_units:      us | si | uk | ca             (default us)
 #   pw_refresh:    refresh interval              (default 15min)
+#   pw_retry_delay: wait before retrying a failed fetch (default 60s)
 #
 # Usage:
 #   pirate_weather: !include
@@ -32,6 +33,7 @@ defaults:
   forecast_size: '100'
   pw_units: us
   pw_refresh: 15min
+  pw_retry_delay: 60s
 
 globals:
   - id: pw_current_icon
@@ -209,7 +211,19 @@ script:
             then:
               - logger.log:
                   level: WARN
-                  format: "Pirate Weather request failed; will retry next cycle"
+                  format: "Pirate Weather request failed; retrying in ${pw_retry_delay}"
+              - script.execute: pw_retry
+
+  # Re-arm after a failed fetch. Without this a single failure (a dropped link, a
+  # 5xx from the API) leaves stale/placeholder values on screen for a whole
+  # ${pw_refresh} period. mode: restart so overlapping retries collapse into one.
+  # The delay also outlasts the parent fetch script, so the SingleScript guard on
+  # fetch_pirate_weather does not swallow the retry.
+  - id: pw_retry
+    mode: restart
+    then:
+      - delay: ${pw_retry_delay}
+      - script.execute: fetch_pirate_weather
 
   # Overridable post-update hook. No-op unless an add-on `!extend`s it.
   - id: pw_after_update
@@ -217,19 +231,37 @@ script:
       - lambda: |-
           // no-op; add-ons extend this (see ui/weather/aqi_pill.yaml)
 
-# Fetch once on boot (after time sync) and then on a fixed interval
+# Fetch once on boot (after the network is up) and then on a fixed interval
 esphome:
   on_boot:
     - priority: -200
       then:
+        # A valid clock is NOT a sufficient gate. Across a soft reboot (OTA, the
+        # restart button, safe-mode exit) the RTC retains the time, so
+        # now().is_valid() is already true ~1s into boot — long before the Wi-Fi
+        # link has associated and picked up DHCP. The fetch then fails instantly
+        # and the panel sits on "--" placeholders until the first ${pw_refresh}
+        # tick. Wait for the network too. network::is_connected() covers
+        # wifi / ethernet / modem / openthread, so this stays transport-agnostic
+        # (on the ESP32-P4 the radio is an esp32_hosted ESP32-C6 over SDIO, which
+        # is why the link takes ~10s to come up).
         - wait_until:
             condition:
-              lambda: 'return id(system_time).now().is_valid();'
-            timeout: 90s
+              lambda: 'return network::is_connected() && id(system_time).now().is_valid();'
+            timeout: 120s
         - script.execute: fetch_pirate_weather
 
 interval:
   - interval: ${pw_refresh}
+    # Without a startup_delay the FIRST tick does not wait a full ${pw_refresh}:
+    # ESPHome's scheduler offsets an interval's first execution by a random
+    # 0..min(interval/2, MAX_INTERVAL_DELAY=5000) ms (scheduler.cpp
+    # calculate_interval_offset_) to avoid a thundering herd. So it fired 0-5s
+    # into boot, before the network was up, and every boot logged
+    # "HTTP Request failed; Not connected to network". The on_boot block above
+    # already performs the initial fetch (gated on the network), so hold the
+    # poller off for a full period instead.
+    startup_delay: ${pw_refresh}
     then:
       - script.execute: fetch_pirate_weather
 
