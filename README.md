@@ -291,7 +291,11 @@ board with a separate DSI panel on the MIPI-DSI FPC, not an all-in-one unit:
 Pass `rotation: "270"` for the landscape mounting on either 10.1 profile. None of these
 boards route an LCD reset or backlight PWM GPIO: panel brightness is written over I2C
 (device `0x45`, register `0x96`) and the GT9271 touch controller is polled, because the
-DSI FPC carries no INT/RST lines.
+DSI FPC carries no INT/RST lines. The 10.1 panel additionally has no enable
+GPIO: it is switched on by writing `0x95` on I2C device `0x45`, which ESPHome's `mipi_dsi`
+never does, so both 10.1 profiles replay the vendor's enable sequence at `on_boot`
+priority 900. Without it the boot wedges in the DSI command FIFO after ~19 commands and
+ends in safe mode with a blank panel — see the comments in those files for the details.
 
 ### Guition
 

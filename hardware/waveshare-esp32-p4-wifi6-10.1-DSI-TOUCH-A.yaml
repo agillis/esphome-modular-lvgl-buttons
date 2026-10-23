@@ -8,12 +8,17 @@
 # Identical to hardware/waveshare-esp32-p4-wifi6-7-DSI-TOUCH-A.yaml apart from the
 # panel: same board, same I2C backlight, same touch, same audio. The 10.1 panel is
 # a JD9365 at 800x1280 / 1.5Gbps, where the 7in is an ILI9881C at 720x1280 / 1Gbps.
+# The 10.1 also needs the 0x45 panel-enable sequence below; the 7in does not.
 #
 # For this same 10.1 panel on the ESP32-P4-Module-DEV-KIT carrier (16MB flash),
-# see hardware/waveshare-esp32-p4-module-dev-kit-10.1-DSI-TOUCH-A.yaml.
+# see hardware/waveshare-esp32-p4-module-dev-kit-10.1-DSI-TOUCH-A.yaml — the two
+# files differ only in flash size and project name.
 #
 # Board-level notes (all panels on this board):
 #   - No LCD reset GPIO      (BSP_LCD_RST      = GPIO_NUM_NC) — panel self-resets
+#   - No LCD enable GPIO either — the 10.1 panel is enabled over I2C (device 0x45,
+#     register 0x95); see "Panel power/enable" below. Without it the boot wedges in
+#     the DSI command FIFO and ends in safe mode with a blank screen.
 #   - No backlight PWM GPIO  (BSP_LCD_BACKLIGHT = GPIO_NUM_NC) — brightness is written
 #     over I2C to the panel's backlight controller: device 0x45, register 0x96, 0x00-0xFF
 #   - No touch INT / RST GPIO (both GPIO_NUM_NC) — GT9271 is polled on the shared I2C bus
@@ -36,8 +41,26 @@ esphome:
   project:
     name: "Waveshare.ESP32-P4-WIFI6-10-1-DSI-TOUCH-A"
     version: "1.0"
+  on_boot:
+    - priority: 900
+      then:
+        - lambda: |-
+            auto *bus = id(bus_a);
+            uint8_t w[2];
+            w[0] = 0x95; w[1] = 0x11; bus->write(0x45, w, 2);
+            w[0] = 0x95; w[1] = 0x17; bus->write(0x45, w, 2);
+            w[0] = 0x96; w[1] = 0x00; bus->write(0x45, w, 2);
+            delay(100);
+            w[0] = 0x96; w[1] = 0xFF; bus->write(0x45, w, 2);
+            delay(1000);
+            ESP_LOGI("panel_pwr", "10.1-DSI-TOUCH-A enabled via 0x45 (0x95=0x17, 0x96=0xFF)");
 
 esp32:
+  # Engineering-sample profile, which boots on both ES and production (rev3)
+  # silicon. If your boot log says `chip revision: v3.x` you can switch to
+  # `board: esp32-p4_r3-evboard` and raise cpu_frequency to 400MHz — but a
+  # rev3-only image will NOT boot on an engineering sample, so this stays the
+  # conservative default.
   board: esp32-p4-evboard
   variant: esp32p4
   # ESP32-P4NRW32: 32MB NOR flash + 32MB in-package PSRAM.
@@ -46,8 +69,7 @@ esp32:
   flash_size: 32MB
   cpu_frequency: 360MHz
   # The 10.1 panel's JD9365 init sequence is long and runs at 1.5Gbps. The
-  # default 5s task watchdog kills display setup mid-init (the 7in ILI9881C
-  # panel already used 3197ms of that budget), so give it room.
+  # default 5s task watchdog kills display setup mid-init, so give it room.
   watchdog_timeout: 30s
   framework:
     type: esp-idf
@@ -112,6 +134,27 @@ i2c:
     frequency: 400kHz
     scan: true
 
+# ---------------------------------------------------------------------------
+# Panel power/enable (REQUIRED before the display sets up)
+# ---------------------------------------------------------------------------
+# This panel is enabled through the board's 0x45 controller, not by a GPIO.
+# Waveshare do it inside esp_lcd_new_panel_jd9365() itself, before any DSI
+# traffic (managed_components/waveshare__esp_lcd_jd9365/esp_lcd_jd9365.c):
+#
+#   0x45: 0x95 <- 0x11 ; 0x95 <- 0x17 ; 0x96 <- 0x00 ; delay 100ms ;
+#         0x96 <- 0xFF ; delay 1000ms
+#
+# ESPHome's mipi_dsi only ever writes 0x96 (brightness, and later), and never
+# writes 0x95 at all. Without the 0x95 enable the panel does not drive its side
+# of the DSI link, so the host can never complete a transfer: the generic command
+# FIFO fills after ~19 commands and never drains, tx_param spins forever in
+# mipi_dsi_host_ll_gen_is_cmd_fifo_full, and ~30s later the task watchdog aborts
+# the boot -- 10 times over, into safe mode with a blank screen. A DCS read hangs
+# immediately for the same reason.
+#
+# Priority 900 runs after the i2c bus (BUS = 1000) and before the display
+# component's setup, and the whole sequence is synchronous inside one lambda so
+# nothing can interleave ahead of the panel being live.
 # -------------------------------------------
 # Touchscreen GT9271 (GT911-compatible) over I2C
 # -------------------------------------------
@@ -167,6 +210,11 @@ light:
 display:
   - platform: mipi_dsi
     id: main_display
+    # ESPHome's built-in model needs nothing but model + dimensions, exactly like
+    # the sibling 7-DSI-TOUCH-A file. An earlier `model: CUSTOM` + inlined JD9365
+    # table here was a workaround for a presumed missing post-reset settle; the
+    # real fault was the 0x45/0x95 enable above, so the named model is correct.
+    # See patches/README.md.
     model: WAVESHARE-10.1-DSI-TOUCH-A
     update_interval: never
     auto_clear_enabled: false
@@ -178,11 +226,10 @@ display:
 # The panel driver does no hardware transform, so rotation is done in LVGL
 # (on the ESP32-P4 this is PPA-accelerated, so it is effectively free).
 #
-# NOTE: pass rotation: "270" from the device config for the usual 1280x800
-# landscape mounting. That is confirmed upright on this panel (verified on the
-# ESP32-P4-Module-DEV-KIT carrier, which takes the identical FPC); use "90" if
-# yours is mounted the other way up. The default below stays 0 only to match the
-# rest of the hardware/ files.
+# NOTE: native scan order is portrait 800x1280. Pass rotation: "270" from the
+# device config for the usual 1280x800 landscape mounting — confirmed upright on
+# the ESP32-P4-Module-DEV-KIT carrier, which takes the identical FPC. Use "90" if
+# your panel is mounted the other way up.
 lvgl:
   rotation: ${rotation | default("0")}
 
