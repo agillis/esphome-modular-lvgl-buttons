@@ -292,3 +292,110 @@ ESPHome uses Jinja2 but with **different delimiters** than standard Jinja. Getti
 - **Theme vars only**: use `$button_on_color`, `$button_off_color`, `$icon_on_color`, `$icon_off_color`, `$label_on_color`, `$label_off_color`, `$icon_font` — never hardcode colors or fonts in component files.
 - **Hardware agnostic**: component files must not hardcode pixel coordinates or assume a specific screen resolution. Layout must work across all supported displays (ranging from 320×240 to 800×1280). Use LVGL alignment properties (`align`, `grid_cell_*`, percentage-based widths/heights) instead of fixed x/y values wherever possible. The current development hardware is the Waveshare ESP32-S3-Touch-LCD-4 (480×480) but this is not a constraint.
 - **ESPHome 2026.7.0+** required (the `image:` component uses the new `platform: file` form introduced in 2026.7.0).
+
+## Debugging Hardware: Lessons (ESP32-P4 + MIPI-DSI, 2026-10-22)
+
+### Diagnostic discipline (read this first)
+
+1. **Flash the manufacturer's demo FIRST.** Before proposing *any* hardware, power,
+   cable or connector cause, run the vendor smoke test. For the P4 DSI panels that is
+   `13_Displaycolorbar` (project `test_esp_lcd_jd9365`) from
+   `waveshareteam/ESP32-P4-Platform`; on rev1.3 silicon build with
+   `SDKCONFIG_DEFAULTS="sdkconfig.defaults;<repo>/config/esp32p4_rev1_3.defaults"`.
+   A passing colorbar proves panel + FPC + PHY + power in one step and means **the bug
+   is in our software**. Do not send anyone to re-seat a ribbon or pull power before
+   this test has failed.
+2. **"Deterministic across power cycles" does NOT imply a hardware fault.** That
+   reasoning was wrong here; the vendor demo passed on the same hardware minutes later.
+3. **A soft reset is not a cold boot.** `rst:0xc (SW_CPU_RESET)` — OTA, the restart
+   button, esptool's RTS reset, a watchdog abort — resets only the SoC. On these boards
+   the panel has **no reset GPIO** (`BSP_LCD_RST = GPIO_NUM_NC`; it self-resets on
+   power-up), and DSI peripheral state can survive a CPU-only reset. So a fix verified
+   only on soft resets is **not verified**. Say which reset paths were actually tested,
+   and get a true `rst:0x1 (POWERON)` before claiming success.
+4. **`esphome logs --device <ip>` cannot see early-boot bugs.** API logging needs the
+   network that is not up yet and reconnects 7-12 s after a reboot, so the first ~5 s of
+   boot is invisible and a failure there looks like "the code never ran". Use UART0.
+
+### Capturing serial on the CH343 (/dev/ttyACM0)
+
+Plain `cat /dev/ttyACM0` asserts DTR/RTS on open and **can hold the ESP in reset** —
+symptom is a captured log of exactly 0 bytes while the board looks dead. Use pyserial
+with explicit line control (DTR low = normal boot, not download mode), and pulse reset
+so the capture starts at t=0:
+
+```python
+s = serial.Serial(); s.port='/dev/ttyACM0'; s.baudrate=115200; s.timeout=0.2
+s.dtr = False; s.rts = False; s.open(); s.dtr = False
+s.rts = True; time.sleep(0.15); s.rts = False     # reset pulse
+```
+
+Decode a crash PC with
+`~/.platformio/tools/toolchain-riscv32-esp/bin/riscv32-esp-elf-addr2line -pfiaC -e
+.esphome/build/<node>/build/firmware.elf 0x...`.
+
+### The DSI command-FIFO hang — ROOT CAUSE: the 0x45 panel enable
+
+**Symptom.** Boot stops after `[C][display.mipi_dsi] Running Setup`; ~30 s later the task
+watchdog aborts, repeating until `Unsuccessful boot attempts: 10` drops ESPHome into
+**safe mode** (logger/WiFi/OTA, no display) — so a blank panel is a *symptom*, not the
+fault. The PC resolves to `mipi_dsi_host_ll_gen_is_cmd_fifo_full` (inlined into
+`mipi_dsi_hal_host_gen_write_dcs_command`).
+
+**Cause.** The 10.1-DSI-TOUCH-A panel is enabled through the board's **0x45 controller,
+not a GPIO**, and Waveshare do it *inside* `esp_lcd_new_panel_jd9365()` — unconditionally,
+for every panel, before any DSI traffic (`esp_lcd_jd9365.c`, I2C on SDA=7/SCL=8):
+
+```c
+0x45: 0x95 <- 0x11 ;  0x95 <- 0x17 ;  0x96 <- 0x00
+vTaskDelay(100ms) ;   0x96 <- 0xFF ;  vTaskDelay(1000ms)
+```
+
+ESPHome's `mipi_dsi` only ever writes `0x96` (brightness, later, via the backlight
+output) and **never writes `0x95`**. Without that enable the panel does not drive its
+side of the link, so the host can never complete a transfer: the generic command FIFO
+buffers ~19 short writes and then never drains.
+
+**Fix** (no ESPHome patch required — stock `mipi_dsi` works): replay that sequence at
+`on_boot` priority 900 — after the i2c bus (`BUS = 1000`), before the display's setup —
+synchronously in a single lambda. See the `esphome:` block in
+`hardware/waveshare-esp32-p4-module-dev-kit-10.1-DSI-TOUCH-A.yaml`. Result on a cold
+`rst:0x1 (POWERON)`: **202 commands -> `MIPI DSI setup complete`**, versus 19 -> watchdog.
+
+**The diagnostic that cracked it** was counting commands. Build at
+`logger: level: VERY_VERBOSE` with `display.mipi_dsi: VERY_VERBOSE` (the per-command
+`Command %02X, length %d` line is compile-gated at that level) and pin every other tag
+down. "Exactly 19 every time, invariant under every setting" is the signature of a FIFO
+that fills and never drains, i.e. nothing is being transmitted — not a bad command, not a
+timing race. A DCS *read* (`rx_param`) is the sharpest probe: it needs a real round-trip,
+so it hangs immediately when the link is dead while writes keep returning `ESP_OK`.
+
+**Dead ends — do not re-litigate** (each measured, each produced the identical 19-command
+wedge): longer post-reset settle (120 / 250 / 500 ms; a YAML `init_sequence`
+`- delay Nms` entry is capped at **255 ms**, one byte, `value must be at most 255ms.`);
+a `taskYIELD()`/`delay(1)` after every command; moving `esp_lcd_panel_init()` after the
+init sequence (vendor order); `model: CUSTOM` + 197 inlined commands vs the built-in
+`WAVESHARE-10.1-DSI-TOUCH-A`; `lane_bit_rate` 1.5Gbps vs 1000Mbps;
+`CONFIG_ESP32P4_REV_MIN_0` vs `_100`. Also verified byte-identical to the vendor and
+therefore innocent: lanes (2), DPI clock (80 MHz), both porch sets, RGB565,
+`phy_clk_src = 0`, the DSI PHY LDO (**channel 3 @ 2500 mV**), sdkconfig LDO reservations,
+PSRAM XIP (`SPIRAM_FETCH_INSTRUCTIONS`/`RODATA`/`XIP_FROM_PSRAM`), and the init table.
+
+**Prefer the built-in model.** `model: WAVESHARE-10.1-DSI-TOUCH-A` works and tracks
+upstream; the old `model: CUSTOM` + hand-copied table was a workaround for a cause that
+turned out to be unrelated. The vendor's table for this panel is the `#else` fallback in
+`esp_lcd_jd9365.c` (`CONFIG_BSP_LCD_TYPE_800_1280_10_1_INCH_A` matches no `#if/#elif`
+branch), so don't copy the `720_1280_9_INCH_B` branch by mistake
+(`{0x01,0x4D},{0x04,0x51}` vs our `{0x01,0x38},{0x04,0x38}`).
+
+**Why the 7-DSI-TOUCH-A never had this problem:** different carrier board, no `0x95`
+enable gate, and its hardware file needs nothing but `model:` + `dimensions:`. A working
+sibling panel is the best differential available — reach for it early.
+
+### Patches live in `patches/` and pip wipes them
+
+`pip install -U esphome` silently reverts anything applied into `site-packages`.
+Any component fix must be saved as a patch under `patches/` and re-applied after an
+upgrade. Check whether a patch is actually applied before assuming its behaviour —
+`esphome-2026.9.1-mipi-dsi-swreset-120ms.patch` was **not** applied during this session
+even though `README.md` described it as the fix.
