@@ -1,5 +1,15 @@
 # Local ESPHome patches
 
+> **2026-10-22 — the `mipi-dsi-swreset-120ms` patch is NOT the fix for the
+> 10.1-DSI-TOUCH-A boot loop, and neither was the YAML `- delay 120ms` workaround.**
+> The real cause is the missing **I2C 0x45 register 0x95 panel enable**: Waveshare do it
+> inside `esp_lcd_new_panel_jd9365()` before any DSI traffic, and ESPHome only ever writes
+> `0x96` (brightness). Without it the panel never drives its side of the link and the DSI
+> generic command FIFO wedges after ~19 commands. Fixed in
+> `hardware/waveshare-esp32-p4-module-dev-kit-10.1-DSI-TOUCH-A.yaml` with an `on_boot`
+> priority-900 lambda; **stock ESPHome needs no patch at all**. See the DSI section of
+> `CLAUDE.md` for the full evidence and the list of measured dead ends.
+
 Patches against the installed ESPHome package that this library's hardware files
 depend on. They are **not** applied automatically — see "Applying" below.
 
